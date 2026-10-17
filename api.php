@@ -2,7 +2,6 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/db.php';
-require_once __DIR__ . '/seed_from_sheet.php';
 
 $action = $_GET['action'] ?? $_POST['action'] ?? 'list';
 
@@ -49,9 +48,10 @@ try {
                 break;
             }
             $expire = time() + 86400 * 90;
-            setcookie('pc_admin_token', get_auth_token(), $expire, '/', '', false, true);
+            $token = get_auth_token();
+            setcookie('pc_admin_token', $token, $expire, '/', '', false, true);
             setcookie('pc_public_preview', '0', time() - 3600, '/', '', false, true);
-            $_COOKIE['pc_admin_token'] = get_auth_token();
+            $_COOKIE['pc_admin_token'] = $token;
             unset($_COOKIE['pc_public_preview']);
             echo json_encode(['ok' => true, 'is_admin' => true]);
             break;
@@ -61,14 +61,17 @@ try {
             $preview = (bool) ($input['preview'] ?? true);
             if ($preview) {
                 setcookie('pc_public_preview', '1', time() + 86400 * 7, '/', '', false, true);
+                setcookie('pc_admin_token', '', time() - 3600, '/', '', false, true);
                 $_COOKIE['pc_public_preview'] = '1';
+                unset($_COOKIE['pc_admin_token']);
             } else {
+                if (!is_admin() && !verify_admin_pin((string) ($input['pin'] ?? ''))) {
+                    http_response_code(401);
+                    echo json_encode(['ok' => false, 'error' => 'Admin PIN required to unlock.']);
+                    break;
+                }
                 setcookie('pc_public_preview', '0', time() - 3600, '/', '', false, true);
                 unset($_COOKIE['pc_public_preview']);
-            }
-            if (!empty($input['clear_token'])) {
-                setcookie('pc_admin_token', '', time() - 3600, '/', '', false, true);
-                unset($_COOKIE['pc_admin_token']);
             }
             echo json_encode(['ok' => true, 'is_admin' => is_admin()]);
             break;
@@ -80,7 +83,9 @@ try {
                 throw new RuntimeException('PIN must be at least 4 characters.');
             }
             update_admin_pin($newPin);
-            setcookie('pc_admin_token', get_auth_token(), time() + 86400 * 90, '/', '', false, true);
+            $newToken = get_auth_token();
+            setcookie('pc_admin_token', $newToken, time() + 86400 * 90, '/', '', false, true);
+            $_COOKIE['pc_admin_token'] = $newToken;
             echo json_encode(['ok' => true, 'message' => 'Admin PIN updated.']);
             break;
 
@@ -261,13 +266,6 @@ try {
             $mode = ($input['mode'] ?? 'replace') === 'merge' ? 'merge' : 'replace';
             $result = handle_import_bundle($mode);
             echo json_encode(['ok' => true, 'result' => $result]);
-            break;
-
-        case 'sync_sheet':
-            require_admin();
-            $reset = !empty($input['reset']);
-            $res = sync_from_google_sheet($reset);
-            echo json_encode(['ok' => true, 'result' => $res]);
             break;
 
         default:

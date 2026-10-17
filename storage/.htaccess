@@ -1,0 +1,10 @@
+# Block direct HTTP download of SQLite database files while allowing storage/cards/*.webp images
+<FilesMatch "\.(sqlite|sqlite3|sqlite-wal|sqlite-shm|db|zip)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

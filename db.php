@@ -58,6 +58,15 @@ function init_schema(PDO $pdo): void
         $ins = $pdo->prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('admin_pin_hash', :val)");
         $ins->execute([':val' => $hash]);
     }
+
+    // Seed random 256-bit HMAC secret if not set
+    $secStmt = $pdo->prepare("SELECT value FROM settings WHERE key = 'auth_secret'");
+    $secStmt->execute();
+    if (!$secStmt->fetchColumn()) {
+        $secret = bin2hex(random_bytes(32));
+        $insSec = $pdo->prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('auth_secret', :val)");
+        $insSec->execute([':val' => $secret]);
+    }
 }
 
 function is_local_request(): bool
@@ -72,23 +81,21 @@ function get_auth_token(): string
     $stmt = $pdo->prepare("SELECT value FROM settings WHERE key = 'admin_pin_hash'");
     $stmt->execute();
     $hash = (string) $stmt->fetchColumn();
-    return hash_hmac('sha256', 'photocard_admin_' . $hash, __FILE__);
+
+    $secStmt = $pdo->prepare("SELECT value FROM settings WHERE key = 'auth_secret'");
+    $secStmt->execute();
+    $secret = (string) $secStmt->fetchColumn();
+
+    return hash_hmac('sha256', 'photocard_admin_' . ($hash !== '' ? $hash : DEFAULT_ADMIN_PIN), $secret . '|' . __FILE__);
 }
 
 function is_admin(): bool
 {
-    // If user explicitly toggled "public_preview" cookie, show read-only mode even on localhost
     if (isset($_COOKIE['pc_public_preview']) && $_COOKIE['pc_public_preview'] === '1') {
         return false;
     }
 
-    // Check signed auth cookie
-    if (isset($_COOKIE['pc_admin_token']) && hash_equals(get_auth_token(), $_COOKIE['pc_admin_token'])) {
-        return true;
-    }
-
-    // Auto-unlock on localhost by default for zero friction
-    if (is_local_request()) {
+    if (isset($_COOKIE['pc_admin_token']) && $_COOKIE['pc_admin_token'] !== '' && hash_equals(get_auth_token(), $_COOKIE['pc_admin_token'])) {
         return true;
     }
 
@@ -101,10 +108,10 @@ function verify_admin_pin(string $pin): bool
     $stmt = $pdo->prepare("SELECT value FROM settings WHERE key = 'admin_pin_hash'");
     $stmt->execute();
     $hash = (string) $stmt->fetchColumn();
-    if ($hash && password_verify($pin, $hash)) {
-        return true;
+    if ($hash !== '') {
+        return password_verify($pin, $hash);
     }
-    return $pin === DEFAULT_ADMIN_PIN;
+    return hash_equals(DEFAULT_ADMIN_PIN, $pin);
 }
 
 function update_admin_pin(string $newPin): void

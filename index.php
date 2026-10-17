@@ -727,28 +727,17 @@ $initialState = get_state_payload();
                 </button>
             </form>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div class="p-3.5 rounded-xl surface-sleeve space-y-2">
-                    <h3 class="text-sm font-bold text-theme-primary">Google Sheet Sync</h3>
-                    <p class="text-xs text-theme-secondary">Pull newly added cards from the Google Sheet <code>Uncollected</code> tab.</p>
-                    <button type="button" @click="syncFromSheet(false)" :disabled="syncingSheet"
-                            class="w-full py-1.5 px-3 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold transition">
-                        <span x-text="syncingSheet ? 'Syncing Sheet...' : 'Pull New Sheet Cards'"></span>
+            <form @submit.prevent="changeAdminPin()" class="p-3.5 rounded-xl surface-sleeve space-y-2">
+                <h3 class="text-sm font-bold text-theme-primary">Server Admin PIN</h3>
+                <p class="text-xs text-theme-secondary">Protect write actions (default PIN is <code>1234</code> until changed).</p>
+                <div class="flex gap-2">
+                    <input type="password" x-model="newPinInput" minlength="4" placeholder="New PIN (min 4 chars)"
+                           class="w-full px-3 py-1.5 rounded-lg surface-input text-xs">
+                    <button type="submit" class="px-4 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-amber-950 text-xs font-bold shrink-0">
+                        Save PIN
                     </button>
                 </div>
-
-                <form @submit.prevent="changeAdminPin()" class="p-3.5 rounded-xl surface-sleeve space-y-2">
-                    <h3 class="text-sm font-bold text-theme-primary">Server Admin PIN</h3>
-                    <p class="text-xs text-theme-secondary">Protect write actions when hosted publicly.</p>
-                    <div class="flex gap-1.5">
-                        <input type="password" x-model="newPinInput" placeholder="New PIN"
-                               class="w-full px-2.5 py-1.5 rounded-lg surface-input text-xs">
-                        <button type="submit" class="px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-amber-950 text-xs font-bold shrink-0">
-                            Save
-                        </button>
-                    </div>
-                </form>
-            </div>
+            </form>
         </div>
     </div>
 
@@ -843,7 +832,6 @@ $initialState = get_state_payload();
                 importFile: null,
                 importMode: 'replace',
                 importingBundle: false,
-                syncingSheet: false,
 
                 toast: {
                     visible: false,
@@ -1373,15 +1361,6 @@ $initialState = get_state_payload();
                         this.isAdmin = !!data.is_admin;
                         this.batchMode = false;
                         this.showToast('Switched to Public Read-Only View');
-                    } else if (this.isLocal) {
-                        const res = await fetch('api.php?action=toggle_preview', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ preview: false })
-                        });
-                        const data = await res.json();
-                        this.isAdmin = !!data.is_admin;
-                        this.showToast('Admin Edit Mode Unlocked');
                     } else {
                         this.pinLoginInput = '';
                         this.pinModalOpen = true;
@@ -1443,25 +1422,6 @@ $initialState = get_state_payload();
                         alert(err.message);
                     } finally {
                         this.importingBundle = false;
-                    }
-                },
-
-                async syncFromSheet(reset = false) {
-                    this.syncingSheet = true;
-                    try {
-                        const res = await fetch('api.php?action=sync_sheet', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ reset })
-                        });
-                        const data = await res.json();
-                        if (!data.ok) throw new Error(data.error || 'Sync failed');
-                        await this.reloadState();
-                        this.showToast(`Sheet Sync: ${data.result.imported} new, ${data.result.skipped} existing`);
-                    } catch (err) {
-                        alert(err.message);
-                    } finally {
-                        this.syncingSheet = false;
                     }
                 },
 
