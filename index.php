@@ -24,7 +24,7 @@ $initialState = get_state_payload();
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=Sora:wght@400;500;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script>
@@ -34,6 +34,7 @@ $initialState = get_state_payload();
                 extend: {
                     fontFamily: {
                         sans: ['"Sora"', 'system-ui', 'sans-serif'],
+                        display: ['"Syne"', '"Sora"', 'system-ui', 'sans-serif'],
                         mono: ['"IBM Plex Mono"', 'monospace'],
                     }
                 }
@@ -44,59 +45,65 @@ $initialState = get_state_payload();
         [x-cloak] { display: none !important; }
 
         :root {
-            --bg-canvas: #f7f5f0;
-            --bg-header: rgba(247, 245, 240, 0.94);
-            --bg-cluster: #ffffff;
-            --bg-control: #edeae2;
-            --bg-control-hover: #e2ded3;
+            --bg-canvas: #eef4fb;
+            --bg-canvas-glow: radial-gradient(1100px circle at 10% -8%, rgba(56, 189, 248, 0.20), transparent 58%),
+                              radial-gradient(950px circle at 92% -4%, rgba(168, 85, 247, 0.14), transparent 54%);
+            --bg-header: rgba(238, 244, 251, 0.90);
+            --bg-cluster: #f8fbff;
+            --bg-control: #e1ecf8;
+            --bg-control-hover: #d1e2f5;
             --bg-sleeve: #ffffff;
-            --bg-dock: rgba(255, 255, 255, 0.96);
-            --bg-modal: #ffffff;
-            --bg-backdrop: rgba(23, 22, 20, 0.55);
-            --border-subtle: #e2ded4;
-            --border-strong: #cbc5b7;
-            --text-primary: #181614;
-            --text-secondary: #4a463f;
-            --text-muted: #6b655b;
-            --shadow-panel: 0 10px 24px -6px rgba(24, 22, 20, 0.08), 0 2px 6px -1px rgba(24, 22, 20, 0.05);
-            --shadow-cluster: 0 2px 6px -1px rgba(24, 22, 20, 0.04), 0 1px 2px 0 rgba(24, 22, 20, 0.03);
-            --scrollbar-track: #f0ede6;
-            --scrollbar-thumb: #cbc5b7;
-            --scrollbar-hover: #aca493;
+            --bg-dock: rgba(248, 251, 255, 0.95);
+            --bg-modal: #f9fcff;
+            --bg-backdrop: rgba(9, 16, 32, 0.58);
+            --border-subtle: #c8dbf2;
+            --border-strong: #9fc0e8;
+            --text-primary: #0b1528;
+            --text-secondary: #2c4263;
+            --text-muted: #516b91;
+            --shadow-panel: 0 12px 28px -6px rgba(14, 34, 68, 0.12), 0 3px 8px -2px rgba(14, 34, 68, 0.07);
+            --shadow-cluster: 0 3px 10px -2px rgba(14, 34, 68, 0.06), 0 1px 3px 0 rgba(14, 34, 68, 0.04);
+            --scrollbar-track: #e4eef9;
+            --scrollbar-thumb: #acc7e8;
+            --scrollbar-hover: #85addb;
         }
 
         html.dark {
-            --bg-canvas: #080a10;
-            --bg-header: rgba(8, 10, 16, 0.94);
-            --bg-cluster: #0e121c;
-            --bg-control: #151b29;
-            --bg-control-hover: #1e2638;
+            --bg-canvas: #060913;
+            --bg-canvas-glow: radial-gradient(1100px circle at 12% -10%, rgba(56, 189, 248, 0.16), transparent 56%),
+                              radial-gradient(950px circle at 88% -5%, rgba(168, 85, 247, 0.15), transparent 54%);
+            --bg-header: rgba(6, 9, 19, 0.90);
+            --bg-cluster: #0c1222;
+            --bg-control: #121b30;
+            --bg-control-hover: #1b2845;
             --bg-sleeve: #ffffff;
-            --bg-dock: rgba(14, 18, 28, 0.96);
-            --bg-modal: #131824;
-            --bg-backdrop: rgba(4, 6, 12, 0.80);
-            --border-subtle: #1e2638;
-            --border-strong: #2e3a52;
-            --text-primary: #f1f5f9;
-            --text-secondary: #cbd5e1;
-            --text-muted: #94a3b8;
-            --shadow-panel: 0 14px 30px -8px rgba(4, 6, 12, 0.65), 0 4px 10px -3px rgba(4, 6, 12, 0.45);
-            --shadow-cluster: 0 4px 12px -2px rgba(4, 6, 12, 0.35);
-            --scrollbar-track: #080a10;
-            --scrollbar-thumb: #252f46;
-            --scrollbar-hover: #384666;
+            --bg-dock: rgba(12, 18, 34, 0.95);
+            --bg-modal: #0e1629;
+            --bg-backdrop: rgba(3, 5, 12, 0.82);
+            --border-subtle: #1e2d4d;
+            --border-strong: #324b7a;
+            --text-primary: #f0f7ff;
+            --text-secondary: #b8ceeb;
+            --text-muted: #7d99be;
+            --shadow-panel: 0 16px 34px -8px rgba(2, 6, 16, 0.72), 0 4px 12px -3px rgba(2, 6, 16, 0.50);
+            --shadow-cluster: 0 4px 14px -2px rgba(2, 6, 16, 0.42);
+            --scrollbar-track: #060913;
+            --scrollbar-thumb: #223357;
+            --scrollbar-hover: #354f82;
         }
 
         body {
             font-family: 'Sora', system-ui, sans-serif;
             background-color: var(--bg-canvas);
+            background-image: var(--bg-canvas-glow);
+            background-attachment: fixed;
             color: var(--text-primary);
-            caret-color: #7c3aed;
+            caret-color: #0284c7;
             transition: background-color 180ms ease, color 180ms ease;
         }
 
         ::selection {
-            background-color: #7c3aed;
+            background-color: #0284c7;
             color: #ffffff;
         }
 
@@ -104,6 +111,32 @@ $initialState = get_state_payload();
         .card-aspect { aspect-ratio: 210 / 339; }
         .card-img-clean {
             clip-path: inset(3px);
+        }
+
+        .winter-emblem {
+            background: linear-gradient(135deg, #0284c7 0%, #6366f1 55%, #a855f7 100%);
+            box-shadow: 0 4px 14px -2px rgba(14, 165, 233, 0.42);
+        }
+
+        .telegram-pill {
+            background-color: rgba(14, 165, 233, 0.13);
+            border: 1px solid rgba(14, 165, 233, 0.35);
+            color: #0369a1;
+        }
+        .telegram-pill:hover {
+            background-color: #0284c7;
+            border-color: #0284c7;
+            color: #ffffff;
+        }
+        html.dark .telegram-pill {
+            background-color: rgba(56, 189, 248, 0.14);
+            border-color: rgba(56, 189, 248, 0.36);
+            color: #7dd3fc;
+        }
+        html.dark .telegram-pill:hover {
+            background-color: #0284c7;
+            border-color: #38bdf8;
+            color: #ffffff;
         }
 
         .surface-header {
@@ -118,7 +151,10 @@ $initialState = get_state_payload();
         .surface-sleeve {
             background-color: var(--bg-sleeve);
             border: 1px solid var(--border-subtle);
-            transition: background-color 180ms ease, border-color 180ms ease;
+            transition: background-color 180ms ease, border-color 180ms ease, transform 180ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms ease;
+        }
+        .surface-sleeve:hover {
+            box-shadow: 0 10px 22px -6px rgba(14, 165, 233, 0.22);
         }
         .surface-control {
             background-color: var(--bg-control);
@@ -170,7 +206,7 @@ $initialState = get_state_payload();
             transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms cubic-bezier(0.22, 1, 0.36, 1);
         }
         :focus-visible {
-            outline: 2px solid #7c3aed;
+            outline: 2px solid #0284c7;
             outline-offset: 2px;
         }
         ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -181,7 +217,7 @@ $initialState = get_state_payload();
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
-<body class="min-h-screen antialiased overflow-x-hidden"
+<body class="min-h-screen antialiased overflow-x-hidden flex flex-col"
       x-data="photocardApp(<?= htmlspecialchars(json_encode($initialState), ENT_QUOTES, 'UTF-8') ?>)"
       @resize.window="viewportWidth = window.innerWidth"
       @paste.window="handleGlobalPaste($event)"
@@ -190,30 +226,48 @@ $initialState = get_state_payload();
     <!-- Top Compact 2-Tier Sticky Header -->
     <header class="sticky top-0 z-30 surface-header backdrop-blur-md">
         <div class="max-w-[1720px] mx-auto px-3 sm:px-5 py-2.5 space-y-2">
-            <!-- Tier 1: Brand + Primary Actions + System & View Menu -->
+            <!-- Tier 1: Winter-Core Brand + Telegram @swrn_r + Primary Actions + Theme Toggle + System Menu -->
             <div class="flex items-center justify-between gap-2 min-w-0">
-                <!-- Left: Brand & Mode Badge -->
-                <div class="flex items-center gap-2 min-w-0">
-                    <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-violet-600 flex items-center justify-center font-extrabold text-xs sm:text-sm text-white elevated-panel shrink-0">
-                        W
+                <!-- Left: Winter Star Emblem + Title + Telegram Contact Pill -->
+                <div class="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
+                    <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl winter-emblem flex items-center justify-center text-white shrink-0"
+                         title="Winter-Core Archive">
+                        <!-- Custom Winter 6-Axis Crystal Snowflake SVG -->
+                        <svg class="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M12 2v20M17 4l-5 4-5-4M7 20l5-4 5 4M3.34 7l17.32 10M6.8 5.2l1.46 6.13-6.13 1.47M17.2 18.8l-1.46-6.13 6.13-1.47M3.34 17L20.66 7M2.13 11.2l6.13 1.47-1.46 6.13M21.87 12.8l-6.13-1.47 1.46-6.13"/>
+                        </svg>
                     </div>
-                    <h1 class="font-bold text-xs sm:text-base tracking-tight text-theme-primary truncate" x-text="appTitle"></h1>
-                    <span x-show="isAdmin"
-                          class="hidden sm:inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 shrink-0">
-                        Admin
-                    </span>
-                    <span x-show="!isAdmin"
-                          class="text-[10px] font-semibold px-1.5 py-0.5 rounded-md surface-control shrink-0">
-                        Read-Only
-                    </span>
+
+                    <div class="min-w-0 flex-1 flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2">
+                        <h1 class="font-sans font-extrabold text-xs sm:text-base lg:text-lg tracking-tight text-theme-primary truncate"
+                            x-text="appTitle"></h1>
+
+                        <div class="flex items-center gap-1.5 min-w-0">
+                            <a href="https://t.me/swrn_r"
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               title="Contact Hafiz on Telegram (@swrn_r)"
+                               class="telegram-pill inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-mono font-bold transition shrink-0">
+                                <svg class="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                    <path d="M21.944 2.506a1.5 1.5 0 0 0-1.613-.232L2.47 9.816a1.5 1.5 0 0 0 .105 2.808l4.755 1.585 1.838 5.515a1.5 1.5 0 0 0 2.536.535l2.742-2.992 4.588 3.365a1.5 1.5 0 0 0 2.353-.897l2.99-15.702a1.5 1.5 0 0 0-.433-1.527ZM9.252 13.52l8.532-5.332-5.414 6.497-.86 2.866-1.258-4.031Z"/>
+                                </svg>
+                                <span>@swrn_r</span>
+                            </a>
+
+                            <span x-show="isAdmin" x-cloak
+                                  class="hidden sm:inline-flex text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 shrink-0">
+                                Admin
+                            </span>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Right: Primary Actions + Unified System & View Popover -->
+                <!-- Right: Primary Actions + Outside Dark/Light Toggle + Unified System & View Popover -->
                 <div class="flex items-center gap-1.5 shrink-0">
                     <template x-if="isAdmin">
                         <div class="flex items-center gap-1.5">
                             <button @click="openAddModal()"
-                                    class="px-2.5 sm:px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-semibold text-xs flex items-center gap-1 elevated-panel transition whitespace-nowrap">
+                                    class="px-2.5 sm:px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs flex items-center gap-1 elevated-panel transition whitespace-nowrap">
                                 <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
                                 <span class="sm:hidden">Add</span>
                                 <span class="hidden sm:inline">Add Card</span>
@@ -228,10 +282,24 @@ $initialState = get_state_payload();
                         </div>
                     </template>
 
+                    <!-- External One-Tap Light/Dark Mode Toggle -->
+                    <button @click="toggleTheme()"
+                            class="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg surface-control text-xs font-semibold flex items-center gap-1.5 transition"
+                            :title="theme === 'dark' ? 'Switch to Glacier Light Mode' : 'Switch to Kwangya Dark Mode'"
+                            :aria-label="theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'">
+                        <svg x-show="theme === 'dark'" x-cloak class="w-4 h-4 text-amber-300 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"/>
+                        </svg>
+                        <svg x-show="theme !== 'dark'" class="w-4 h-4 text-sky-700 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"/>
+                        </svg>
+                        <span class="hidden md:inline" x-text="theme === 'dark' ? 'Light' : 'Dark'"></span>
+                    </button>
+
                     <!-- System & View Menu Popover -->
                     <div class="relative" @click.outside="systemMenuOpen = false">
                         <button @click="systemMenuOpen = !systemMenuOpen; eraMenuOpen = false"
-                                :class="systemMenuOpen ? 'bg-violet-600 text-white border-violet-600' : 'surface-control'"
+                                :class="systemMenuOpen ? 'bg-sky-600 text-white border-sky-600' : 'surface-control'"
                                 class="px-2.5 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition whitespace-nowrap"
                                 aria-label="Open View and System Menu"
                                 :aria-expanded="systemMenuOpen">
@@ -400,7 +468,34 @@ $initialState = get_state_payload();
     </header>
 
     <!-- Main Board -->
-    <main class="max-w-[1720px] mx-auto px-3 sm:px-5 py-4 pb-24" @click="activeCardId = null">
+    <main class="flex-1 w-full max-w-[1720px] mx-auto px-3 sm:px-5 py-3.5 pb-16" @click="activeCardId = null">
+        <!-- Compact Winter-Core Collector Note & Picture Credits Strip -->
+        <div class="mb-3 px-3 py-2 rounded-xl surface-cluster flex flex-wrap items-center justify-between gap-2 text-[11px] sm:text-xs text-theme-secondary">
+            <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+                <svg class="w-3.5 h-3.5 text-sky-600 dark:text-sky-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/>
+                    <path d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z"/>
+                </svg>
+                <span>Photocard pictures &amp; templates courtesy of</span>
+                <a href="https://x.com/aespa_pclist"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="font-mono font-bold text-sky-600 dark:text-sky-300 hover:underline inline-flex items-center gap-1">
+                    <span>@aespa_pclist</span>
+                </a>
+                <span>(X / Twitter) &amp; fellow MY template contributors.</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] font-mono text-theme-muted min-w-0">
+                <span>Have a card on my wishlist?</span>
+                <a href="https://t.me/swrn_r"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   class="font-bold text-sky-600 dark:text-sky-300 hover:underline">
+                    DM @swrn_r on Telegram →
+                </a>
+            </div>
+        </div>
+
         <!-- Empty State -->
         <div x-show="filteredCards.length === 0" x-cloak
              class="my-12 max-w-md mx-auto text-center p-7 rounded-2xl surface-cluster elevated-panel">
@@ -413,7 +508,7 @@ $initialState = get_state_payload();
                     Reset Filters
                 </button>
                 <button x-show="isAdmin" @click="openAddModal()"
-                        class="px-3.5 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold">
+                        class="px-3.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold">
                     Add Photocard
                 </button>
             </div>
@@ -426,7 +521,7 @@ $initialState = get_state_payload();
                 <template x-for="card in sortedCards" :key="card.id">
                     <article class="group relative rounded-xl overflow-hidden surface-sleeve card-aspect w-full transition select-none"
                              data-sleeve
-                             :class="isSelected(card.id) ? 'ring-2 ring-amber-400' : 'hover:border-violet-500'"
+                             :class="isSelected(card.id) ? 'ring-2 ring-amber-400' : 'hover:border-sky-400'"
                              @click.stop="handleCardClick(card)">
                         <div class="relative w-full h-full overflow-hidden flex items-center justify-center">
                             <!-- Ambient Blurred Picture Background (activates when photo edges have multi-color variance) -->
@@ -526,6 +621,24 @@ $initialState = get_state_payload();
             </div>
         </template>
     </main>
+
+    <!-- Footer Credits -->
+    <footer class="mt-auto border-t border-theme-subtle surface-header py-4 px-3 sm:px-5">
+        <div class="max-w-[1720px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-theme-secondary">
+            <div class="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 text-center sm:text-left">
+                <span class="font-display font-bold text-theme-primary" x-text="appTitle"></span>
+                <span>·</span>
+                <span>Photocard pictures credited to</span>
+                <a href="https://x.com/aespa_pclist" target="_blank" rel="noopener noreferrer" class="font-mono font-bold text-sky-600 dark:text-sky-300 hover:underline">@aespa_pclist</a>
+                <span>(X / Twitter) &amp; multiple community scan / template contributors.</span>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+                <a href="https://t.me/swrn_r" target="_blank" rel="noopener noreferrer" class="telegram-pill inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-mono font-bold transition">
+                    <span>Telegram @swrn_r</span>
+                </a>
+            </div>
+        </div>
+    </footer>
 
     <!-- Floating Batch Action Bar -->
     <div x-show="batchMode" x-cloak
@@ -800,7 +913,7 @@ $initialState = get_state_payload();
     <script>
         function photocardApp(initial) {
             return {
-                appTitle: initial.app_title || 'Photocard Wishlist',
+                appTitle: initial.app_title || "Hafiz's Winteo Peace Photocard Wishlist",
                 currency: initial.currency || 'RM',
                 isAdmin: !!initial.is_admin,
                 isLocal: !!initial.is_local,

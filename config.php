@@ -15,13 +15,12 @@ if (file_exists($envPath)) {
     }
 }
 
-define('APP_TITLE', $_ENV['APP_TITLE'] ?? 'Winteo Peace Photocard Wishlist');
+define('APP_TITLE', $_ENV['APP_TITLE'] ?? "Hafiz's Winteo Peace Photocard Wishlist");
 define('STORAGE_DIR', __DIR__ . '/storage');
 define('CARDS_DIR', STORAGE_DIR . '/cards');
 define('DB_PATH', STORAGE_DIR . '/database.sqlite');
 define('DEFAULT_ADMIN_PIN', $_ENV['ADMIN_PIN'] ?? '1234');
 define('CURRENCY_SYMBOL', $_ENV['CURRENCY_SYMBOL'] ?? 'RM');
-define('GOOGLE_SHEET_ID', $_ENV['GOOGLE_SHEET_ID'] ?? '13Wge2hBMeeLlxQT9x9mxgSzhJreetM2rM1AcTPL_J0c');
 
 // Ensure storage directories exist
 if (!is_dir(STORAGE_DIR)) {
