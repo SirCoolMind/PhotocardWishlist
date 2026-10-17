@@ -1,0 +1,10 @@
+# Protect raw SQLite database files from direct public download
+<FilesMatch "\.(sqlite|sqlite3|db|sqlite-wal|sqlite-shm|env)$">
+    Require all denied
+</FilesMatch>
+
+# Cache photocard WebP images for fast repeat loads
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/webp "access plus 30 days"
+</IfModule>

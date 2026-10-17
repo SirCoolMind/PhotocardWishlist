@@ -1,0 +1,6 @@
+.env
+storage/*.sqlite-wal
+storage/*.sqlite-shm
+storage/snapshot_*.sqlite
+storage/export_*.zip
+storage/import_tmp_*/
