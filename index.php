@@ -102,21 +102,6 @@ $initialState = get_state_payload();
 
         .tabular-nums { font-variant-numeric: tabular-nums; }
         .card-aspect { aspect-ratio: 210 / 339; }
-
-        /* Standard locked pixel card dimensions per density (S / M / L) */
-        .density-sm { --card-w: 124px; --card-h: 200px; }
-        .density-md { --card-w: 150px; --card-h: 242px; }
-        .density-lg { --card-w: 192px; --card-h: 310px; }
-        @media (max-width: 639px) {
-            .density-sm { --card-w: 112px; --card-h: 181px; }
-            .density-md { --card-w: 148px; --card-h: 239px; }
-            .density-lg { --card-w: 168px; --card-h: 271px; }
-        }
-        .standard-card-box {
-            width: var(--card-w);
-            height: var(--card-h);
-            flex: 0 0 var(--card-w);
-        }
         .card-img-clean {
             clip-path: inset(3px);
         }
@@ -129,9 +114,6 @@ $initialState = get_state_payload();
             background-color: var(--bg-cluster);
             border: 1px solid var(--border-subtle);
             box-shadow: var(--shadow-cluster);
-        }
-        .surface-cluster:hover {
-            border-color: var(--border-strong);
         }
         .surface-sleeve {
             background-color: var(--bg-sleeve);
@@ -172,16 +154,14 @@ $initialState = get_state_payload();
         .text-theme-muted { color: var(--text-muted); }
         .border-theme-subtle { border-color: var(--border-subtle); }
 
-        .bento-board {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.75rem;
-            align-items: flex-start;
+        .binder-grid {
+            display: grid;
+            gap: 0.625rem;
         }
-        .bento-cluster-grid {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
+        @media (min-width: 640px) {
+            .binder-grid {
+                gap: 0.75rem;
+            }
         }
         .elevated-panel {
             box-shadow: var(--shadow-panel);
@@ -203,7 +183,6 @@ $initialState = get_state_payload();
 </head>
 <body class="min-h-screen antialiased overflow-x-hidden"
       x-data="photocardApp(<?= htmlspecialchars(json_encode($initialState), ENT_QUOTES, 'UTF-8') ?>)"
-      :class="'density-' + cardSize"
       @resize.window="viewportWidth = window.innerWidth"
       @paste.window="handleGlobalPaste($event)"
       @keydown.escape.window="closeModals()">
@@ -283,19 +262,19 @@ $initialState = get_state_payload();
                                 </div>
                             </div>
 
-                            <!-- Layout Mode -->
+                            <!-- Sort Order -->
                             <div>
-                                <div class="text-[11px] font-semibold text-theme-secondary mb-1.5">Board Layout</div>
+                                <div class="text-[11px] font-semibold text-theme-secondary mb-1.5">Sort Order</div>
                                 <div class="grid grid-cols-2 gap-1 p-0.5 rounded-lg surface-control">
-                                    <button @click="groupByEra = true"
-                                            :class="groupByEra ? 'bg-violet-600 text-white font-bold' : 'text-theme-secondary'"
+                                    <button @click="sortBy = 'era'"
+                                            :class="sortBy === 'era' ? 'bg-violet-600 text-white font-bold' : 'text-theme-secondary'"
                                             class="py-1.5 px-2 rounded-md text-xs transition">
-                                        Bento Eras
+                                        By Era
                                     </button>
-                                    <button @click="groupByEra = false"
-                                            :class="!groupByEra ? 'bg-violet-600 text-white font-bold' : 'text-theme-secondary'"
+                                    <button @click="sortBy = 'newest'"
+                                            :class="sortBy === 'newest' ? 'bg-violet-600 text-white font-bold' : 'text-theme-secondary'"
                                             class="py-1.5 px-2 rounded-md text-xs transition">
-                                        Flat Grid
+                                        Newest
                                     </button>
                                 </div>
                             </div>
@@ -440,156 +419,65 @@ $initialState = get_state_payload();
             </div>
         </div>
 
-        <!-- MODE A: Side-by-Side Bento Era Clusters (Dense Row Packing with Locked Standard Card Size) -->
-        <template x-if="groupByEra && filteredCards.length > 0">
-            <div class="bento-board">
-                <template x-for="group in groupedCards" :key="group.era">
-                    <section class="surface-cluster rounded-xl p-2.5 flex flex-col justify-between transition w-fit max-w-full min-w-0">
-                        <!-- Compact Cluster Header (w-0 min-w-full prevents header title from stretching 1-card clusters wider than --card-w) -->
-                        <div class="flex items-center justify-between gap-1.5 mb-2 px-0.5 w-0 min-w-full">
-                            <div class="flex items-center gap-1.5 min-w-0">
-                                <h2 class="text-xs font-bold text-theme-primary truncate" x-text="group.era" :title="group.era"></h2>
-                                <span class="px-1.5 py-0.2 text-[10px] font-mono font-bold tabular-nums rounded bg-violet-500/15 text-violet-700 dark:text-violet-200 border border-violet-500/30 shrink-0"
-                                      x-text="group.items.length"></span>
-                            </div>
-                            <button x-show="isAdmin"
-                                    @click.stop="openAddModal(group.era)"
-                                    class="w-5 h-5 rounded-md surface-control hover:bg-violet-600 hover:text-white flex items-center justify-center shrink-0 transition"
-                                    :title="'Add photocard to ' + group.era"
-                                    :aria-label="'Add photocard to ' + group.era">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-                            </button>
-                        </div>
-
-                        <!-- Cluster Internal Card Grid -->
-                        <div class="bento-cluster-grid">
-                            <template x-for="card in group.items" :key="card.id">
-                                <article class="group relative rounded-lg overflow-hidden surface-sleeve standard-card-box transition select-none"
-                                         data-sleeve
-                                         :class="isSelected(card.id) ? 'ring-2 ring-amber-400' : 'hover:border-violet-500'"
-                                         @click.stop="handleCardClick(card)">
-                                    <div class="relative w-full h-full overflow-hidden flex items-center justify-center">
-                                        <!-- Ambient Blurred Picture Background (activates when photo edges have multi-color variance) -->
-                                        <img :src="card.image_path"
-                                             alt=""
-                                             aria-hidden="true"
-                                             data-ambient
-                                             class="absolute inset-0 w-full h-full object-cover scale-125 blur-xl opacity-0 transition-opacity duration-200 pointer-events-none">
-
-                                        <!-- Foreground Photocard Image (samples edge background color on load) -->
-                                        <img :src="card.image_path"
-                                             :alt="card.era + (card.title ? ' - ' + card.title : '')"
-                                             loading="lazy"
-                                             @load="matchSleeveBg($event)"
-                                             class="card-img-clean relative z-[1] max-w-full max-h-full w-auto h-auto object-contain transition duration-200 group-hover:scale-[1.02]">
-
-                                        <!-- Status Badge when viewing All -->
-                                        <span x-show="activeStatus === 'all'"
-                                              class="z-10 absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider shadow"
-                                              :class="statusBadgeClass(card.status)"
-                                              x-text="statusShortLabel(card.status)"></span>
-
-                                        <!-- Price Tag -->
-                                        <span x-show="card.price !== null && card.price !== ''"
-                                              class="z-10 absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tabular-nums bg-emerald-950/90 text-emerald-200 border border-emerald-700/50"
-                                              x-text="currency + ' ' + Number(card.price).toFixed(0)"></span>
-
-                                        <!-- Subtle Bottom Caption for POB Title / Note (when not hovered) -->
-                                        <div x-show="card.title || (card.notes && !card.notes.startsWith('Sheet cell '))"
-                                             class="z-10 absolute inset-x-0 bottom-0 surface-dock px-2 py-1 pointer-events-none group-hover:opacity-0 transition-opacity">
-                                            <p x-show="card.title" class="text-[10px] font-semibold text-violet-700 dark:text-violet-200 truncate" x-text="card.title"></p>
-                                            <p x-show="!card.title && card.notes && !card.notes.startsWith('Sheet cell ')"
-                                               class="text-[10px] text-theme-secondary truncate"
-                                               x-text="card.notes"></p>
-                                        </div>
-
-                                        <!-- Batch Selection Overlay -->
-                                        <div x-show="batchMode"
-                                             class="z-10 absolute inset-0 bg-black/25 flex items-start justify-end p-2">
-                                            <div class="w-5 h-5 rounded-md border-2 flex items-center justify-center transition"
-                                                 :class="isSelected(card.id) ? 'bg-amber-400 border-amber-400 text-amber-950' : 'bg-black/65 border-white text-white'">
-                                                <svg x-show="isSelected(card.id)" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
-                                            </div>
-                                        </div>
-
-                                        <!-- Top-Right Quick Utility Icons (Zoom / Edit / Delete) -->
-                                        <div x-show="!batchMode"
-                                             :class="activeCardId === card.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
-                                             class="z-10 absolute top-1.5 right-1.5 flex items-center gap-1 transition-opacity">
-                                            <button @click.stop="openLightbox(card)"
-                                                    class="p-1 rounded-md surface-modal text-theme-primary hover:bg-violet-600 hover:text-white"
-                                                    title="Zoom Image"
-                                                    aria-label="Zoom Image">
-                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM10.5 7.5v6m3-3h-6"/></svg>
-                                            </button>
-                                            <template x-if="isAdmin">
-                                                <div class="flex items-center gap-1">
-                                                    <button @click.stop="openEditModal(card)"
-                                                            class="p-1 rounded-md surface-modal text-theme-primary hover:bg-violet-600 hover:text-white"
-                                                            title="Edit Details"
-                                                            aria-label="Edit Details">
-                                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125"/></svg>
-                                                    </button>
-                                                    <button @click.stop="deleteCard(card)"
-                                                            class="p-1 rounded-md surface-modal text-theme-primary hover:bg-rose-600 hover:text-white"
-                                                            title="Delete Card"
-                                                            aria-label="Delete Card">
-                                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
-                                                    </button>
-                                                </div>
-                                            </template>
-                                        </div>
-
-                                        <!-- Sleek Bottom Hover/Tap 1-Click Status Dock -->
-                                        <div x-show="isAdmin && !batchMode"
-                                             :class="activeCardId === card.id ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100'"
-                                             class="z-10 card-dock-transition absolute inset-x-0 bottom-0 surface-dock p-1.5">
-                                            <div class="grid grid-cols-3 gap-1">
-                                                <template x-for="st in quickMoveTargets(card.status)" :key="st.key">
-                                                    <button @click.stop="quickMove(card, st.key)"
-                                                            :class="st.btnClass"
-                                                            class="py-1 px-1 rounded text-[10px] font-bold text-center truncate transition"
-                                                            :title="'Move to ' + st.label">
-                                                        <span x-text="st.shortLabel"></span>
-                                                    </button>
-                                                </template>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </article>
-                            </template>
-                        </div>
-                    </section>
-                </template>
-            </div>
-        </template>
-
-        <!-- MODE B: Continuous Dense Flat Grid -->
-        <template x-if="!groupByEra && filteredCards.length > 0">
-            <div class="bento-board">
-                <template x-for="card in filteredCards" :key="card.id">
-                    <article class="group relative rounded-lg overflow-hidden surface-sleeve standard-card-box transition select-none"
+        <!-- Unified Edge-to-Edge Binder Grid -->
+        <template x-if="sortedCards.length > 0">
+            <div class="binder-grid"
+                 :style="`grid-template-columns: repeat(${boardCols}, minmax(0, 1fr));`">
+                <template x-for="card in sortedCards" :key="card.id">
+                    <article class="group relative rounded-xl overflow-hidden surface-sleeve card-aspect w-full transition select-none"
                              data-sleeve
                              :class="isSelected(card.id) ? 'ring-2 ring-amber-400' : 'hover:border-violet-500'"
                              @click.stop="handleCardClick(card)">
                         <div class="relative w-full h-full overflow-hidden flex items-center justify-center">
+                            <!-- Ambient Blurred Picture Background (activates when photo edges have multi-color variance) -->
                             <img :src="card.image_path"
                                  alt=""
                                  aria-hidden="true"
                                  data-ambient
                                  class="absolute inset-0 w-full h-full object-cover scale-125 blur-xl opacity-0 transition-opacity duration-200 pointer-events-none">
 
+                            <!-- Foreground Photocard Image (samples edge background color on load) -->
                             <img :src="card.image_path"
-                                 :alt="card.era"
+                                 :alt="card.era + (card.title ? ' - ' + card.title : '')"
                                  loading="lazy"
                                  @load="matchSleeveBg($event)"
                                  class="card-img-clean relative z-[1] max-w-full max-h-full w-auto h-auto object-contain transition duration-200 group-hover:scale-[1.02]">
 
-                            <!-- Top-left Era Badge in Flat Mode -->
-                            <span class="z-10 absolute top-1.5 left-1.5 max-w-[70%] truncate px-1.5 py-0.5 rounded text-[10px] font-bold surface-modal text-theme-primary"
-                                  x-text="card.era"></span>
+                            <!-- Top-Left Stacked Badges (Era + Status when viewing All + Price) -->
+                            <div class="z-10 absolute top-1.5 left-1.5 flex flex-col items-start gap-1 max-w-[72%] pointer-events-none">
+                                <span class="max-w-full truncate px-2 py-0.5 rounded-md text-[10px] font-bold surface-modal text-theme-primary"
+                                      x-text="card.era"
+                                      :title="card.era"></span>
 
-                            <!-- Top-Right Quick Utility Icons -->
+                                <span x-show="activeStatus === 'all'"
+                                      class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider shadow"
+                                      :class="statusBadgeClass(card.status)"
+                                      x-text="statusShortLabel(card.status)"></span>
+
+                                <span x-show="card.price !== null && card.price !== ''"
+                                      class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tabular-nums bg-emerald-950/90 text-emerald-200 border border-emerald-700/50"
+                                      x-text="currency + ' ' + Number(card.price).toFixed(0)"></span>
+                            </div>
+
+                            <!-- Subtle Bottom Caption for POB Title / Note (when not hovered) -->
+                            <div x-show="card.title || (card.notes && !card.notes.startsWith('Sheet cell '))"
+                                 class="z-10 absolute inset-x-0 bottom-0 surface-dock px-2 py-1 pointer-events-none group-hover:opacity-0 transition-opacity">
+                                <p x-show="card.title" class="text-[10px] font-semibold text-violet-700 dark:text-violet-200 truncate" x-text="card.title"></p>
+                                <p x-show="!card.title && card.notes && !card.notes.startsWith('Sheet cell ')"
+                                   class="text-[10px] text-theme-secondary truncate"
+                                   x-text="card.notes"></p>
+                            </div>
+
+                            <!-- Batch Selection Overlay -->
+                            <div x-show="batchMode"
+                                 class="z-10 absolute inset-0 bg-black/25 flex items-start justify-end p-2">
+                                <div class="w-5 h-5 rounded-md border-2 flex items-center justify-center transition"
+                                     :class="isSelected(card.id) ? 'bg-amber-400 border-amber-400 text-amber-950' : 'bg-black/65 border-white text-white'">
+                                    <svg x-show="isSelected(card.id)" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
+                                </div>
+                            </div>
+
+                            <!-- Top-Right Quick Utility Icons (Zoom / Edit / Delete) -->
                             <div x-show="!batchMode"
                                  :class="activeCardId === card.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
                                  class="z-10 absolute top-1.5 right-1.5 flex items-center gap-1 transition-opacity">
@@ -617,16 +505,7 @@ $initialState = get_state_payload();
                                 </template>
                             </div>
 
-                            <!-- Batch Checkbox -->
-                            <div x-show="batchMode"
-                                 class="z-10 absolute inset-0 bg-black/25 flex items-start justify-end p-2">
-                                <div class="w-5 h-5 rounded-md border-2 flex items-center justify-center transition"
-                                     :class="isSelected(card.id) ? 'bg-amber-400 border-amber-400 text-amber-950' : 'bg-black/65 border-white text-white'">
-                                    <svg x-show="isSelected(card.id)" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg>
-                                </div>
-                            </div>
-
-                            <!-- Bottom Hover/Tap Status Dock -->
+                            <!-- Sleek Bottom Hover/Tap 1-Click Status Dock -->
                             <div x-show="isAdmin && !batchMode"
                                  :class="activeCardId === card.id ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100'"
                                  class="z-10 card-dock-transition absolute inset-x-0 bottom-0 surface-dock p-1.5">
@@ -947,7 +826,7 @@ $initialState = get_state_payload();
                 activeStatus: 'uncollected',
                 activeEra: 'ALL',
                 searchQuery: '',
-                groupByEra: true,
+                sortBy: 'era',
                 cardSize: 'md',
                 activeCardId: null,
 
@@ -1056,14 +935,6 @@ $initialState = get_state_payload();
                     return this.cardSize === 'sm' ? 10 : (this.cardSize === 'lg' ? 6 : 8);
                 },
 
-                clusterSpan(itemCount) {
-                    return Math.max(1, Math.min(itemCount, this.boardCols));
-                },
-
-                clusterInnerCols(itemCount) {
-                    return Math.max(1, Math.min(itemCount, this.boardCols));
-                },
-
                 get statusFilteredCards() {
                     return this.cards.filter(c => this.activeStatus === 'all' || c.status === this.activeStatus);
                 },
@@ -1092,38 +963,22 @@ $initialState = get_state_payload();
                     });
                 },
 
-                get groupedCards() {
-                    const groups = [];
-                    const map = new Map();
-                    for (const c of this.filteredCards) {
-                        if (!map.has(c.era)) {
-                            const group = { era: c.era, items: [] };
-                            map.set(c.era, group);
-                            groups.push(group);
-                        }
-                        map.get(c.era).items.push(c);
+                get sortedCards() {
+                    const list = [...this.filteredCards];
+                    if (this.sortBy === 'newest') {
+                        return list.sort((a, b) => b.id - a.id);
                     }
-                    const sorted = groups.sort((a, b) => b.items.length - a.items.length);
-                    const maxCols = this.boardCols;
-                    const packed = [];
-                    const used = new Array(sorted.length).fill(false);
-
-                    while (packed.length < sorted.length) {
-                        let rowRemaining = maxCols;
-                        let placedInRow = false;
-                        for (let i = 0; i < sorted.length; i++) {
-                            if (used[i]) continue;
-                            const span = Math.min(sorted[i].items.length, maxCols);
-                            if (!placedInRow || span <= rowRemaining) {
-                                used[i] = true;
-                                packed.push(sorted[i]);
-                                rowRemaining -= span;
-                                placedInRow = true;
-                                if (rowRemaining <= 0) break;
-                            }
-                        }
+                    const eraCounts = {};
+                    for (const c of list) {
+                        eraCounts[c.era] = (eraCounts[c.era] || 0) + 1;
                     }
-                    return packed;
+                    return list.sort((a, b) => {
+                        const diff = (eraCounts[b.era] || 0) - (eraCounts[a.era] || 0);
+                        if (diff !== 0) return diff;
+                        const eraCmp = a.era.localeCompare(b.era, undefined, { numeric: true, sensitivity: 'base' });
+                        if (eraCmp !== 0) return eraCmp;
+                        return a.id - b.id;
+                    });
                 },
 
                 matchSleeveBg(event) {
