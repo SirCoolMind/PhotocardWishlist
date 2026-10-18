@@ -1,0 +1,30 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            set -e
+            cd /var/www/wishlist.hafizr.com
+            git config --global --add safe.directory /var/www/wishlist.hafizr.com
+            git config core.fileMode false
+            git update-index --skip-worktree storage/database.sqlite 2>/dev/null || true
+            git fetch origin main
+            git reset --hard origin/main
+            git update-index --skip-worktree storage/database.sqlite 2>/dev/null || true
+            chown -R www-data:www-data /var/www/wishlist.hafizr.com
+            chmod -R 775 /var/www/wishlist.hafizr.com/storage
+            systemctl reload php8.2-fpm
