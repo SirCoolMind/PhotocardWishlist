@@ -677,9 +677,11 @@ $initialState = get_state_payload();
                         Photocard Image <span class="text-theme-secondary font-normal">(Upload file, press Ctrl+V, or paste URL)</span>
                     </label>
                     <div class="flex items-center gap-4">
-                        <div class="w-24 card-aspect rounded-xl surface-sleeve overflow-hidden flex items-center justify-center shrink-0">
+                        <div class="w-24 card-aspect rounded-xl surface-sleeve overflow-hidden flex items-center justify-center shrink-0 cursor-pointer group"
+                             @click="if(formModal.previewUrl) openLightbox({ image_path: formModal.previewUrl, era: formModal.era || 'Preview', title: formModal.title })"
+                             :title="formModal.previewUrl ? 'Click to inspect / zoom image' : ''">
                             <template x-if="formModal.previewUrl">
-                                <img :src="formModal.previewUrl" alt="Preview" class="w-full h-full object-contain">
+                                <img :src="formModal.previewUrl" alt="Preview" class="w-full h-full object-contain group-hover:scale-105 transition-transform">
                             </template>
                             <template x-if="!formModal.previewUrl">
                                 <span class="text-[11px] text-theme-muted text-center px-2">No image</span>
@@ -816,7 +818,7 @@ $initialState = get_state_payload();
                             <!-- Proof image thumbnail if present -->
                             <template x-if="item.image_path">
                                 <img :src="item.image_path"
-                                     @click="lightboxCard = { image_path: item.image_path, era: priceModal.card.era, title: 'Price proof: ' + item.source + ' (' + currency + ' ' + Number(item.price).toFixed(2) + ')' }"
+                                     @click="openLightbox({ image_path: item.image_path, era: priceModal.card.era, title: 'Price proof: ' + item.source + ' (' + currency + ' ' + Number(item.price).toFixed(2) + ')' })"
                                      class="w-10 h-10 object-cover rounded-lg surface-cluster cursor-pointer hover:opacity-80 transition shrink-0"
                                      title="Click to zoom proof screenshot">
                             </template>
@@ -994,32 +996,96 @@ $initialState = get_state_payload();
         </form>
     </div>
 
-    <!-- Image Lightbox Modal -->
+    <!-- Image Lightbox Modal with Zoom & Pan -->
     <div x-show="lightboxCard !== null" x-cloak
-         @click="lightboxCard = null"
-         class="fixed inset-0 z-50 surface-backdrop backdrop-blur-md flex items-center justify-center p-4">
+         @click="closeLightbox()"
+         @keydown.escape.window="closeLightbox()"
+         @keydown.window="handleLightboxKeydown($event)"
+         class="fixed inset-0 z-50 surface-backdrop backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
         <template x-if="lightboxCard">
-            <div @click.stop class="max-w-md w-full surface-modal rounded-2xl overflow-hidden">
-                <div class="relative surface-sleeve flex items-center justify-center max-h-[72vh]">
-                    <img :src="lightboxCard.image_path" :alt="lightboxCard.era" class="max-h-[72vh] w-auto object-contain">
-                    <button @click="lightboxCard = null" aria-label="Close Lightbox"
-                            class="absolute top-3 right-3 w-8 h-8 rounded-full surface-modal text-theme-primary flex items-center justify-center hover:bg-violet-600 hover:text-white">
+            <div @click.stop class="max-w-lg w-full surface-modal rounded-2xl overflow-hidden shadow-2xl flex flex-col">
+                <!-- Zoom & Pan Viewport -->
+                <div class="relative surface-sleeve flex items-center justify-center h-[62vh] sm:h-[72vh] overflow-hidden select-none"
+                     @wheel.prevent="handleLightboxWheel($event)"
+                     @mousedown="startLightboxPan($event)"
+                     @mousemove="doLightboxPan($event)"
+                     @mouseup="endLightboxPan()"
+                     @mouseleave="endLightboxPan()"
+                     @touchstart="startLightboxTouch($event)"
+                     @touchmove="doLightboxTouch($event)"
+                     @touchend="endLightboxPan()"
+                     :class="{
+                         'cursor-zoom-in': lightboxZoom === 1,
+                         'cursor-grab': lightboxZoom > 1 && !lightboxIsDragging,
+                         'cursor-grabbing': lightboxZoom > 1 && lightboxIsDragging
+                     }">
+
+                    <!-- Zoomable Photocard Image -->
+                    <img :src="lightboxCard.image_path"
+                         :alt="lightboxCard.era || 'Photocard'"
+                         @dblclick="toggleLightboxZoom()"
+                         :style="{
+                             transform: 'translate(' + lightboxPan.x + 'px, ' + lightboxPan.y + 'px) scale(' + lightboxZoom + ')',
+                             transition: lightboxIsDragging ? 'none' : 'transform 0.15s ease-out'
+                         }"
+                         class="max-h-[62vh] sm:max-h-[72vh] w-auto max-w-full object-contain pointer-events-none select-none will-change-transform">
+
+                    <!-- Close Button -->
+                    <button @click="closeLightbox()" aria-label="Close Lightbox"
+                            class="absolute top-3 right-3 z-20 w-8 h-8 rounded-full surface-modal text-theme-primary flex items-center justify-center hover:bg-violet-600 hover:text-white shadow-md transition">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
-                </div>
-                <div class="p-4 flex items-center justify-between gap-3">
-                    <div>
-                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase"
-                              :class="statusBadgeClass(lightboxCard.status)"
-                              x-text="statusLabel(lightboxCard.status)"></span>
-                        <h3 class="text-base font-bold text-theme-primary mt-1" x-text="lightboxCard.era"></h3>
-                        <p x-show="lightboxCard.title" class="text-xs text-violet-700 dark:text-violet-300" x-text="lightboxCard.title"></p>
+
+                    <!-- Floating Zoom Controls Dock -->
+                    <div class="absolute bottom-3 inset-x-0 flex items-center justify-center pointer-events-none z-20">
+                        <div class="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full surface-modal border border-theme-subtle shadow-lg backdrop-blur-md text-xs">
+                            <button type="button" @click.stop="zoomOutLightbox()"
+                                    :disabled="lightboxZoom <= 1"
+                                    class="w-7 h-7 rounded-full flex items-center justify-center text-theme-primary hover:bg-violet-600 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-theme-primary transition"
+                                    title="Zoom Out (-)">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12h-15"/></svg>
+                            </button>
+
+                            <button type="button" @click.stop="resetLightboxZoom()"
+                                    class="px-2 py-0.5 rounded font-mono text-[11px] font-bold text-theme-secondary hover:text-theme-primary transition"
+                                    title="Click to reset zoom to 100%">
+                                <span x-text="Math.round(lightboxZoom * 100) + '%'"></span>
+                            </button>
+
+                            <button type="button" @click.stop="zoomInLightbox()"
+                                    :disabled="lightboxZoom >= 4"
+                                    class="w-7 h-7 rounded-full flex items-center justify-center text-theme-primary hover:bg-violet-600 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-theme-primary transition"
+                                    title="Zoom In (+)">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                            </button>
+
+                            <span class="w-px h-3.5 bg-theme-subtle mx-0.5"></span>
+
+                            <button type="button" @click.stop="toggleLightboxZoom()"
+                                    class="px-2 py-1 rounded text-theme-secondary hover:text-theme-primary text-[10px] font-semibold transition"
+                                    :title="lightboxZoom > 1 ? 'Reset to fit (Double click)' : 'Zoom 2.5x (Double click)'">
+                                <span x-text="lightboxZoom > 1 ? 'Reset' : 'Zoom'"></span>
+                            </button>
+                        </div>
                     </div>
-                    <div x-show="isAdmin" class="flex items-center gap-1.5 flex-wrap justify-end">
+                </div>
+
+                <!-- Footer Card Info & Admin Quick Move -->
+                <div class="p-3.5 sm:p-4 flex items-center justify-between gap-3 border-t border-theme-subtle">
+                    <div class="min-w-0">
+                        <template x-if="lightboxCard.status">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase"
+                                  :class="statusBadgeClass(lightboxCard.status)"
+                                  x-text="statusLabel(lightboxCard.status)"></span>
+                        </template>
+                        <h3 class="text-base font-bold text-theme-primary mt-1 truncate" x-text="lightboxCard.era"></h3>
+                        <p x-show="lightboxCard.title" class="text-xs text-violet-700 dark:text-violet-300 truncate" x-text="lightboxCard.title"></p>
+                    </div>
+                    <div x-show="isAdmin && lightboxCard.id" class="flex items-center gap-1.5 flex-wrap justify-end shrink-0">
                         <template x-for="st in quickMoveTargets(lightboxCard.status)" :key="st.key">
-                            <button @click="quickMove(lightboxCard, st.key); lightboxCard = null"
+                            <button @click="quickMove(lightboxCard, st.key); closeLightbox()"
                                     :class="st.btnClass"
-                                    class="px-2.5 py-1.5 rounded-lg text-xs font-bold">
+                                    class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition">
                                 <span x-text="st.shortLabel"></span>
                             </button>
                         </template>
@@ -1057,6 +1123,11 @@ $initialState = get_state_payload();
                 eraMenuOpen: false,
                 systemMenuOpen: false,
                 lightboxCard: null,
+                lightboxZoom: 1,
+                lightboxPan: { x: 0, y: 0 },
+                lightboxIsDragging: false,
+                lightboxDragStart: { x: 0, y: 0 },
+                lightboxTouchDistance: 0,
                 syncModalOpen: false,
                 pinModalOpen: false,
                 pinLoginInput: '',
@@ -1592,6 +1663,120 @@ $initialState = get_state_payload();
 
                 openLightbox(card) {
                     this.lightboxCard = card;
+                    this.resetLightboxZoom();
+                },
+
+                closeLightbox() {
+                    this.lightboxCard = null;
+                    this.resetLightboxZoom();
+                },
+
+                resetLightboxZoom() {
+                    this.lightboxZoom = 1;
+                    this.lightboxPan = { x: 0, y: 0 };
+                    this.lightboxIsDragging = false;
+                    this.lightboxTouchDistance = 0;
+                },
+
+                zoomInLightbox() {
+                    this.lightboxZoom = Math.min(4, Math.round((this.lightboxZoom + 0.5) * 10) / 10);
+                    if (this.lightboxZoom === 1) {
+                        this.lightboxPan = { x: 0, y: 0 };
+                    }
+                },
+
+                zoomOutLightbox() {
+                    this.lightboxZoom = Math.max(1, Math.round((this.lightboxZoom - 0.5) * 10) / 10);
+                    if (this.lightboxZoom === 1) {
+                        this.lightboxPan = { x: 0, y: 0 };
+                    }
+                },
+
+                toggleLightboxZoom() {
+                    if (this.lightboxZoom > 1) {
+                        this.resetLightboxZoom();
+                    } else {
+                        this.lightboxZoom = 2.5;
+                        this.lightboxPan = { x: 0, y: 0 };
+                    }
+                },
+
+                handleLightboxWheel(e) {
+                    const delta = e.deltaY < 0 ? 0.3 : -0.3;
+                    const next = Math.min(4, Math.max(1, Math.round((this.lightboxZoom + delta) * 10) / 10));
+                    this.lightboxZoom = next;
+                    if (this.lightboxZoom === 1) {
+                        this.lightboxPan = { x: 0, y: 0 };
+                    }
+                },
+
+                startLightboxPan(e) {
+                    if (this.lightboxZoom <= 1 || e.button !== 0) return;
+                    this.lightboxIsDragging = true;
+                    this.lightboxDragStart = {
+                        x: e.clientX - this.lightboxPan.x,
+                        y: e.clientY - this.lightboxPan.y
+                    };
+                },
+
+                doLightboxPan(e) {
+                    if (!this.lightboxIsDragging || this.lightboxZoom <= 1) return;
+                    this.lightboxPan = {
+                        x: e.clientX - this.lightboxDragStart.x,
+                        y: e.clientY - this.lightboxDragStart.y
+                    };
+                },
+
+                endLightboxPan() {
+                    this.lightboxIsDragging = false;
+                    this.lightboxTouchDistance = 0;
+                },
+
+                startLightboxTouch(e) {
+                    if (e.touches.length === 2) {
+                        this.lightboxTouchDistance = Math.hypot(
+                            e.touches[0].clientX - e.touches[1].clientX,
+                            e.touches[0].clientY - e.touches[1].clientY
+                        );
+                        this.lightboxIsDragging = false;
+                    } else if (e.touches.length === 1 && this.lightboxZoom > 1) {
+                        this.lightboxIsDragging = true;
+                        this.lightboxDragStart = {
+                            x: e.touches[0].clientX - this.lightboxPan.x,
+                            y: e.touches[0].clientY - this.lightboxPan.y
+                        };
+                    }
+                },
+
+                doLightboxTouch(e) {
+                    if (e.touches.length === 2 && this.lightboxTouchDistance > 0) {
+                        const dist = Math.hypot(
+                            e.touches[0].clientX - e.touches[1].clientX,
+                            e.touches[0].clientY - e.touches[1].clientY
+                        );
+                        const factor = dist / this.lightboxTouchDistance;
+                        this.lightboxZoom = Math.min(4, Math.max(1, Math.round(this.lightboxZoom * factor * 10) / 10));
+                        this.lightboxTouchDistance = dist;
+                        if (this.lightboxZoom === 1) {
+                            this.lightboxPan = { x: 0, y: 0 };
+                        }
+                    } else if (e.touches.length === 1 && this.lightboxIsDragging && this.lightboxZoom > 1) {
+                        this.lightboxPan = {
+                            x: e.touches[0].clientX - this.lightboxDragStart.x,
+                            y: e.touches[0].clientY - this.lightboxDragStart.y
+                        };
+                    }
+                },
+
+                handleLightboxKeydown(e) {
+                    if (!this.lightboxCard) return;
+                    if (e.key === '+' || e.key === '=') {
+                        this.zoomInLightbox();
+                    } else if (e.key === '-' || e.key === '_') {
+                        this.zoomOutLightbox();
+                    } else if (e.key === '0') {
+                        this.resetLightboxZoom();
+                    }
                 },
 
                 resetPriceForm() {
@@ -1704,7 +1889,7 @@ $initialState = get_state_payload();
                 },
 
                 closeModals() {
-                    this.lightboxCard = null;
+                    this.closeLightbox();
                     this.priceModal.open = false;
                     this.formModal.open = false;
                     this.syncModalOpen = false;
