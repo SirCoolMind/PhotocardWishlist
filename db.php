@@ -147,6 +147,45 @@ function update_admin_pin(string $newPin): void
 
 /**
  * Convert raw image bytes into an optimized WebP file inside storage/cards/
+/**
+ * Detect image file extension from MIME or binary magic bytes
+ */
+function detect_image_extension(string $bytes): string
+{
+    if (class_exists('finfo')) {
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $mime = $finfo->buffer($bytes);
+        $extMap = [
+            'image/webp' => 'webp',
+            'image/png' => 'png',
+            'image/gif' => 'gif',
+            'image/jpeg' => 'jpg',
+            'image/jpg' => 'jpg',
+        ];
+        if (isset($extMap[$mime])) {
+            return $extMap[$mime];
+        }
+    }
+
+    // Binary magic bytes fallback
+    if (str_starts_with($bytes, "\x89PNG\r\n\x1a\n")) {
+        return 'png';
+    }
+    if (str_starts_with($bytes, "\xFF\xD8\xFF")) {
+        return 'jpg';
+    }
+    if (str_starts_with($bytes, 'GIF87a') || str_starts_with($bytes, 'GIF89a')) {
+        return 'gif';
+    }
+    if (strlen($bytes) > 12 && substr($bytes, 0, 4) === 'RIFF' && substr($bytes, 8, 4) === 'WEBP') {
+        return 'webp';
+    }
+
+    return 'jpg';
+}
+
+/**
+ * Convert raw image bytes into an optimized WebP file (or direct image if GD unavailable)
  * Returns relative web path e.g. 'storage/cards/card_xxxx.webp'
  */
 function save_card_image_from_bytes(string $bytes, string $prefix = 'card'): string
@@ -159,45 +198,39 @@ function save_card_image_from_bytes(string $bytes, string $prefix = 'card'): str
     $filename = sprintf('%s_%s_%s.webp', $prefix, date('Ymd_His'), $id);
     $destPath = CARDS_DIR . '/' . $filename;
 
-    $img = @imagecreatefromstring($bytes);
-    if ($img !== false) {
-        $width = imagesx($img);
-        $height = imagesy($img);
+    if (function_exists('imagecreatefromstring')) {
+        $img = @imagecreatefromstring($bytes);
+        if ($img !== false) {
+            $width = imagesx($img);
+            $height = imagesy($img);
 
-        // Resize if larger than 960px tall while maintaining crisp photocard quality
-        $maxHeight = 960;
-        if ($height > $maxHeight) {
-            $newHeight = $maxHeight;
-            $newWidth = (int) round($width * ($maxHeight / $height));
-            $resized = imagecreatetruecolor($newWidth, $newHeight);
-            imagealphablending($resized, false);
-            imagesavealpha($resized, true);
-            imagecopyresampled($resized, $img, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
-            imagedestroy($img);
-            $img = $resized;
-        } else {
-            imagepalettetotruecolor($img);
-            imagealphablending($img, true);
-            imagesavealpha($img, true);
-        }
+            // Resize if larger than 960px tall while maintaining crisp photocard quality
+            $maxHeight = 960;
+            if ($height > $maxHeight) {
+                $newHeight = $maxHeight;
+                $newWidth = (int) round($width * ($maxHeight / $height));
+                $resized = imagecreatetruecolor($newWidth, $newHeight);
+                imagealphablending($resized, false);
+                imagesavealpha($resized, true);
+                imagecopyresampled($resized, $img, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+                imagedestroy($img);
+                $img = $resized;
+            } else {
+                imagepalettetotruecolor($img);
+                imagealphablending($img, true);
+                imagesavealpha($img, true);
+            }
 
-        if (function_exists('imagewebp') && imagewebp($img, $destPath, 86)) {
+            if (function_exists('imagewebp') && imagewebp($img, $destPath, 86)) {
+                imagedestroy($img);
+                return 'storage/cards/' . $filename;
+            }
             imagedestroy($img);
-            return 'storage/cards/' . $filename;
         }
-        imagedestroy($img);
     }
 
     // Fallback: save raw bytes with detected extension
-    $finfo = new finfo(FILEINFO_MIME_TYPE);
-    $mime = $finfo->buffer($bytes) ?: 'image/jpeg';
-    $extMap = [
-        'image/webp' => 'webp',
-        'image/png' => 'png',
-        'image/gif' => 'gif',
-        'image/jpeg' => 'jpg',
-    ];
-    $ext = $extMap[$mime] ?? 'jpg';
+    $ext = detect_image_extension($bytes);
     $fallbackName = sprintf('%s_%s_%s.%s', $prefix, date('Ymd_His'), $id, $ext);
     file_put_contents(CARDS_DIR . '/' . $fallbackName, $bytes);
     return 'storage/cards/' . $fallbackName;
@@ -229,7 +262,7 @@ function save_card_image_from_url(string $url, string $prefix = 'card'): string
 }
 
 /**
- * Convert raw image bytes into an optimized WebP file inside storage/prices/
+ * Convert raw image bytes into an optimized WebP file (or direct image if GD unavailable) inside storage/prices/
  */
 function save_price_image_from_bytes(string $bytes, string $prefix = 'price'): string
 {
@@ -241,43 +274,37 @@ function save_price_image_from_bytes(string $bytes, string $prefix = 'price'): s
     $filename = sprintf('%s_%s_%s.webp', $prefix, date('Ymd_His'), $id);
     $destPath = PRICES_DIR . '/' . $filename;
 
-    $img = @imagecreatefromstring($bytes);
-    if ($img !== false) {
-        $width = imagesx($img);
-        $height = imagesy($img);
+    if (function_exists('imagecreatefromstring')) {
+        $img = @imagecreatefromstring($bytes);
+        if ($img !== false) {
+            $width = imagesx($img);
+            $height = imagesy($img);
 
-        $maxHeight = 960;
-        if ($height > $maxHeight) {
-            $newHeight = $maxHeight;
-            $newWidth = (int) round($width * ($maxHeight / $height));
-            $resized = imagecreatetruecolor($newWidth, $newHeight);
-            imagealphablending($resized, false);
-            imagesavealpha($resized, true);
-            imagecopyresampled($resized, $img, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
-            imagedestroy($img);
-            $img = $resized;
-        } else {
-            imagepalettetotruecolor($img);
-            imagealphablending($img, true);
-            imagesavealpha($img, true);
-        }
+            $maxHeight = 960;
+            if ($height > $maxHeight) {
+                $newHeight = $maxHeight;
+                $newWidth = (int) round($width * ($maxHeight / $height));
+                $resized = imagecreatetruecolor($newWidth, $newHeight);
+                imagealphablending($resized, false);
+                imagesavealpha($resized, true);
+                imagecopyresampled($resized, $img, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+                imagedestroy($img);
+                $img = $resized;
+            } else {
+                imagepalettetotruecolor($img);
+                imagealphablending($img, true);
+                imagesavealpha($img, true);
+            }
 
-        if (function_exists('imagewebp') && imagewebp($img, $destPath, 86)) {
+            if (function_exists('imagewebp') && imagewebp($img, $destPath, 86)) {
+                imagedestroy($img);
+                return 'storage/prices/' . $filename;
+            }
             imagedestroy($img);
-            return 'storage/prices/' . $filename;
         }
-        imagedestroy($img);
     }
 
-    $finfo = new finfo(FILEINFO_MIME_TYPE);
-    $mime = $finfo->buffer($bytes) ?: 'image/jpeg';
-    $extMap = [
-        'image/webp' => 'webp',
-        'image/png' => 'png',
-        'image/gif' => 'gif',
-        'image/jpeg' => 'jpg',
-    ];
-    $ext = $extMap[$mime] ?? 'jpg';
+    $ext = detect_image_extension($bytes);
     $fallbackName = sprintf('%s_%s_%s.%s', $prefix, date('Ymd_His'), $id, $ext);
     file_put_contents(PRICES_DIR . '/' . $fallbackName, $bytes);
     return 'storage/prices/' . $fallbackName;
