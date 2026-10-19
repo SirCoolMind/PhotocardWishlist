@@ -1030,11 +1030,18 @@ $initialState = get_state_payload();
                          }"
                          class="max-h-[62vh] sm:max-h-[72vh] w-auto max-w-full object-contain pointer-events-none select-none will-change-transform">
 
-                    <!-- Close Button -->
-                    <button @click="closeLightbox()" aria-label="Close Lightbox"
-                            class="absolute top-3 right-3 z-20 w-8 h-8 rounded-full surface-modal text-theme-primary flex items-center justify-center hover:bg-violet-600 hover:text-white shadow-md transition">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
+                    <!-- Top Actions (Open in New Tab & Close) -->
+                    <div class="absolute top-3 right-3 z-20 flex items-center gap-1.5">
+                        <a :href="lightboxCard.image_path" target="_blank" rel="noopener noreferrer"
+                           class="w-8 h-8 rounded-full surface-modal text-theme-primary flex items-center justify-center hover:bg-violet-600 hover:text-white shadow-md transition"
+                           title="Open image in new tab">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+                        </a>
+                        <button @click="closeLightbox()" aria-label="Close Lightbox"
+                                class="w-8 h-8 rounded-full surface-modal text-theme-primary flex items-center justify-center hover:bg-violet-600 hover:text-white shadow-md transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
 
                     <!-- Floating Zoom Controls Dock -->
                     <div class="absolute bottom-3 inset-x-0 flex items-center justify-center pointer-events-none z-20">
@@ -1066,6 +1073,12 @@ $initialState = get_state_payload();
                                     :title="lightboxZoom > 1 ? 'Reset to fit (Double click)' : 'Zoom 2.5x (Double click)'">
                                 <span x-text="lightboxZoom > 1 ? 'Reset' : 'Zoom'"></span>
                             </button>
+
+                            <a :href="lightboxCard.image_path" target="_blank" rel="noopener noreferrer"
+                               class="w-7 h-7 rounded-full flex items-center justify-center text-theme-secondary hover:bg-violet-600 hover:text-white transition"
+                               title="Open image in new tab">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+                            </a>
                         </div>
                     </div>
                 </div>
