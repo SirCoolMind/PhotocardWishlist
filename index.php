@@ -215,9 +215,15 @@ $initialState = get_state_payload();
         ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-hover); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        html.modal-open, body.modal-open {
+            overflow: hidden !important;
+            touch-action: none;
+            -webkit-overflow-scrolling: auto;
+        }
     </style>
 </head>
 <body class="min-h-screen antialiased overflow-x-hidden flex flex-col"
+      :class="{ 'overflow-hidden modal-open': isAnyModalOpen }"
       x-data="photocardApp(<?= htmlspecialchars(json_encode($initialState), ENT_QUOTES, 'UTF-8') ?>)"
       @resize.window="viewportWidth = window.innerWidth"
       @paste.window="handleGlobalPaste($event)"
@@ -1001,18 +1007,21 @@ $initialState = get_state_payload();
          @click="closeLightbox()"
          @keydown.escape.window="closeLightbox()"
          @keydown.window="handleLightboxKeydown($event)"
-         class="fixed inset-0 z-50 surface-backdrop backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
+         @touchmove.prevent
+         style="touch-action: none;"
+         class="fixed inset-0 z-50 surface-backdrop backdrop-blur-md flex items-center justify-center p-3 sm:p-4 touch-none overscroll-none select-none">
         <template x-if="lightboxCard">
             <div @click.stop class="max-w-lg w-full surface-modal rounded-2xl overflow-hidden shadow-2xl flex flex-col">
                 <!-- Zoom & Pan Viewport -->
-                <div class="relative surface-sleeve flex items-center justify-center h-[62vh] sm:h-[72vh] overflow-hidden select-none"
+                <div class="relative surface-sleeve flex items-center justify-center h-[62vh] sm:h-[72vh] overflow-hidden select-none touch-none overscroll-none"
+                     style="touch-action: none;"
                      @wheel.prevent="handleLightboxWheel($event)"
                      @mousedown="startLightboxPan($event)"
                      @mousemove="doLightboxPan($event)"
                      @mouseup="endLightboxPan()"
                      @mouseleave="endLightboxPan()"
-                     @touchstart="startLightboxTouch($event)"
-                     @touchmove="doLightboxTouch($event)"
+                     @touchstart.passive="startLightboxTouch($event)"
+                     @touchmove.prevent="doLightboxTouch($event)"
                      @touchend="endLightboxPan()"
                      :class="{
                          'cursor-zoom-in': lightboxZoom === 1,
@@ -1232,6 +1241,26 @@ $initialState = get_state_payload();
                         btnClass: ''
                     }
                 ],
+
+                init() {
+                    this.$watch('isAnyModalOpen', (open) => {
+                        if (open) {
+                            document.documentElement.classList.add('overflow-hidden', 'modal-open');
+                            document.body.classList.add('overflow-hidden', 'modal-open');
+                        } else {
+                            document.documentElement.classList.remove('overflow-hidden', 'modal-open');
+                            document.body.classList.remove('overflow-hidden', 'modal-open');
+                        }
+                    });
+                },
+
+                get isAnyModalOpen() {
+                    return this.lightboxCard !== null ||
+                           (this.formModal && this.formModal.open) ||
+                           (this.priceModal && this.priceModal.open) ||
+                           this.syncModalOpen ||
+                           this.pinModalOpen;
+                },
 
                 toggleTheme() {
                     this.theme = this.theme === 'dark' ? 'light' : 'dark';
@@ -1677,11 +1706,17 @@ $initialState = get_state_payload();
                 openLightbox(card) {
                     this.lightboxCard = card;
                     this.resetLightboxZoom();
+                    document.documentElement.classList.add('overflow-hidden', 'modal-open');
+                    document.body.classList.add('overflow-hidden', 'modal-open');
                 },
 
                 closeLightbox() {
                     this.lightboxCard = null;
                     this.resetLightboxZoom();
+                    if (!this.isAnyModalOpen) {
+                        document.documentElement.classList.remove('overflow-hidden', 'modal-open');
+                        document.body.classList.remove('overflow-hidden', 'modal-open');
+                    }
                 },
 
                 resetLightboxZoom() {
@@ -1910,6 +1945,8 @@ $initialState = get_state_payload();
                     this.eraMenuOpen = false;
                     this.systemMenuOpen = false;
                     this.activeCardId = null;
+                    document.documentElement.classList.remove('overflow-hidden', 'modal-open');
+                    document.body.classList.remove('overflow-hidden', 'modal-open');
                 },
 
                 async handleLockButton() {
