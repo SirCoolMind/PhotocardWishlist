@@ -512,7 +512,7 @@ $initialState = get_state_payload();
                                  @load="matchSleeveBg($event)"
                                  class="card-img-clean relative z-[1] max-w-full max-h-full w-auto h-auto object-contain transition duration-200 group-hover:scale-[1.02]">
 
-                            <!-- Top-Left Stacked Badges (Era + Status when viewing All + Price) -->
+                            <!-- Top-Left Stacked Badges (Era + Status when viewing All) -->
                             <div class="z-10 absolute top-1.5 left-1.5 flex flex-col items-start gap-1 max-w-[72%] pointer-events-none">
                                 <span class="max-w-full truncate px-2 py-0.5 rounded-md text-[10px] font-bold surface-modal text-theme-primary"
                                       x-text="card.era"
@@ -522,10 +522,6 @@ $initialState = get_state_payload();
                                       class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider shadow"
                                       :class="statusBadgeClass(card.status)"
                                       x-text="statusShortLabel(card.status)"></span>
-
-                                <span x-show="card.price !== null && card.price !== ''"
-                                      class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold tabular-nums bg-emerald-950/90 text-emerald-200 border border-emerald-700/50"
-                                      x-text="currency + ' ' + Number(card.price).toFixed(0)"></span>
                             </div>
 
                             <!-- Subtle Bottom Caption for POB Title / Note (when not hovered) -->
@@ -546,7 +542,7 @@ $initialState = get_state_payload();
                                 </div>
                             </div>
 
-                            <!-- Top-Right Quick Utility Icons (Zoom / Edit / Delete) -->
+                            <!-- Top-Right Quick Utility Icons (Zoom / Prices / Edit / Delete) -->
                             <div x-show="!batchMode"
                                  :class="activeCardId === card.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
                                  class="z-10 absolute top-1.5 right-1.5 flex items-center gap-1 transition-opacity">
@@ -558,6 +554,12 @@ $initialState = get_state_payload();
                                 </button>
                                 <template x-if="isAdmin">
                                     <div class="flex items-center gap-1">
+                                        <button @click.stop="openPriceModal(card)"
+                                                class="p-1 rounded-md surface-modal text-emerald-600 dark:text-emerald-400 hover:bg-emerald-600 hover:text-white"
+                                                :title="'Price Listings' + (card.price_count ? ' (' + card.price_count + ')' : '')"
+                                                aria-label="Price Listings">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        </button>
                                         <button @click.stop="openEditModal(card)"
                                                 class="p-1 rounded-md surface-modal text-theme-primary hover:bg-violet-600 hover:text-white"
                                                 title="Edit Details"
@@ -738,6 +740,18 @@ $initialState = get_state_payload();
                     </div>
                 </div>
 
+                <div x-show="formModal.isEdit" class="p-3 rounded-xl surface-sleeve flex items-center justify-between gap-2">
+                    <div>
+                        <div class="text-xs font-bold text-theme-primary">Price Benchmark Listings</div>
+                        <div class="text-[11px] text-theme-secondary" x-text="(formModal.price_count ? formModal.price_count : 0) + ' price source(s) recorded.'"></div>
+                    </div>
+                    <button type="button" @click="openPriceModalById(formModal.id)"
+                            class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1">
+                        <span>Manage Prices</span>
+                        <span class="font-mono" x-show="formModal.min_price" x-text="'(' + currency + ' ' + Number(formModal.min_price).toFixed(0) + ')'"></span>
+                    </button>
+                </div>
+
                 <div>
                     <label class="block text-xs font-semibold text-theme-primary mb-1">Notes / Seller / Tracking (Optional)</label>
                     <input type="text" x-model="formModal.notes"
@@ -753,6 +767,137 @@ $initialState = get_state_payload();
                     <button type="submit" :disabled="formModal.saving"
                             class="px-5 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-xs font-bold text-white elevated-panel">
                         <span x-text="formModal.saving ? 'Saving...' : (formModal.isEdit ? 'Save Changes' : 'Add Photocard')"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Price Benchmark Listings Modal -->
+    <div x-show="priceModal.open" x-cloak
+         class="fixed inset-0 z-50 surface-backdrop backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+        <div @click.outside="priceModal.open = false"
+             class="surface-modal rounded-2xl max-w-xl w-full p-5 space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-theme-subtle">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <template x-if="priceModal.card">
+                        <img :src="priceModal.card.image_path" class="w-9 h-12 object-cover rounded-md surface-sleeve shrink-0">
+                    </template>
+                    <div class="min-w-0">
+                        <h2 class="text-base font-bold text-theme-primary truncate">Price Benchmarks</h2>
+                        <p class="text-xs text-theme-secondary truncate" x-text="priceModal.card ? (priceModal.card.era + (priceModal.card.title ? ' · ' + priceModal.card.title : '')) : ''"></p>
+                    </div>
+                </div>
+                <button type="button" @click="priceModal.open = false" aria-label="Close price modal" class="text-theme-muted hover:text-theme-primary">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <!-- List of existing price listings -->
+            <div class="space-y-2 max-h-64 overflow-y-auto pr-1">
+                <div class="text-xs font-semibold text-theme-secondary flex items-center justify-between">
+                    <span>Recorded Price Sources</span>
+                    <span class="font-mono text-[11px]" x-text="priceModal.list.length + ' listing(s)'"></span>
+                </div>
+
+                <template x-if="priceModal.loading">
+                    <div class="py-6 text-center text-xs text-theme-muted">Loading price listings...</div>
+                </template>
+
+                <template x-if="!priceModal.loading && priceModal.list.length === 0">
+                    <div class="py-6 text-center text-xs text-theme-muted surface-sleeve rounded-xl">
+                        No price listings recorded yet for this card. Add the first price below.
+                    </div>
+                </template>
+
+                <template x-for="item in priceModal.list" :key="item.id">
+                    <div class="p-3 rounded-xl surface-sleeve flex items-center justify-between gap-3 transition">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <!-- Proof image thumbnail if present -->
+                            <template x-if="item.image_path">
+                                <img :src="item.image_path"
+                                     @click="lightboxCard = { image_path: item.image_path, era: priceModal.card.era, title: 'Price proof: ' + item.source + ' (' + currency + ' ' + Number(item.price).toFixed(2) + ')' }"
+                                     class="w-10 h-10 object-cover rounded-lg surface-cluster cursor-pointer hover:opacity-80 transition shrink-0"
+                                     title="Click to zoom proof screenshot">
+                            </template>
+                            <template x-if="!item.image_path">
+                                <div class="w-10 h-10 rounded-lg surface-control flex items-center justify-center text-theme-muted shrink-0 text-[10px] font-mono">
+                                    No img
+                                </div>
+                            </template>
+
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="font-mono font-bold text-sm text-emerald-600 dark:text-emerald-400"
+                                          x-text="currency + ' ' + Number(item.price).toFixed(2)"></span>
+                                    
+                                    <!-- Hyperlink if URL, otherwise badge -->
+                                    <template x-if="item.source.startsWith('http://') || item.source.startsWith('https://')">
+                                        <a :href="item.source" target="_blank" rel="noopener noreferrer"
+                                           class="px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-600 dark:text-sky-300 border border-sky-500/30 text-[11px] font-mono font-medium hover:underline inline-flex items-center gap-1 truncate max-w-[180px]">
+                                            <span class="truncate" x-text="item.source"></span>
+                                            <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+                                        </a>
+                                    </template>
+                                    <template x-if="!(item.source.startsWith('http://') || item.source.startsWith('https://'))">
+                                        <span class="px-2 py-0.5 rounded-md surface-control text-[11px] font-semibold text-theme-primary truncate max-w-[180px]"
+                                              x-text="item.source"></span>
+                                    </template>
+                                </div>
+
+                                <p x-show="item.note" class="text-xs text-theme-secondary mt-0.5 truncate" x-text="item.note"></p>
+                                <span class="text-[10px] font-mono text-theme-muted" x-text="item.created_at"></span>
+                            </div>
+                        </div>
+
+                        <!-- Delete button -->
+                        <button type="button" @click="deletePriceListing(item.id)"
+                                class="p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10 hover:text-rose-600 transition shrink-0"
+                                title="Delete price entry" aria-label="Delete price entry">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                        </button>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Add New Price Listing Form -->
+            <form @submit.prevent="submitNewPriceListing()" class="p-4 rounded-xl surface-cluster space-y-3 pt-3 border-t border-theme-subtle">
+                <div class="text-xs font-bold text-theme-primary">Add New Price Listing</div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                        <label class="block text-[11px] font-semibold text-theme-secondary mb-1">Price (<span x-text="currency"></span>) *</label>
+                        <input type="number" step="0.01" min="0.01" required x-model="priceForm.price"
+                               placeholder="e.g. 35"
+                               class="w-full px-3 py-1.5 rounded-lg surface-input text-xs font-mono font-bold">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-theme-secondary mb-1">Source / Platform *</label>
+                        <input type="text" required x-model="priceForm.source"
+                               placeholder="e.g. Carousell @seller, Shopee, or link"
+                               class="w-full px-3 py-1.5 rounded-lg surface-input text-xs">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-semibold text-theme-secondary mb-1">Note (Optional)</label>
+                    <input type="text" x-model="priceForm.notes"
+                           placeholder="e.g. Includes postage, slight dent at back, GO seller"
+                           class="w-full px-3 py-1.5 rounded-lg surface-input text-xs">
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-semibold text-theme-secondary mb-1">Proof Screenshot (Optional)</label>
+                    <div class="flex items-center gap-2">
+                        <input type="file" accept="image/*" @change="handlePriceFileSelect($event)"
+                               class="block w-full text-xs text-theme-secondary file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-semibold file:bg-sky-600 file:text-white hover:file:bg-sky-500">
+                    </div>
+                </div>
+
+                <div class="flex justify-end pt-1">
+                    <button type="submit" :disabled="priceForm.saving"
+                            class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition flex items-center gap-1.5">
+                        <span x-text="priceForm.saving ? 'Saving Listing...' : '+ Add Price Listing'"></span>
                     </button>
                 </div>
             </form>
@@ -927,6 +1072,22 @@ $initialState = get_state_payload();
                     timer: null
                 },
 
+                priceModal: {
+                    open: false,
+                    card: null,
+                    loading: false,
+                    list: []
+                },
+
+                priceForm: {
+                    price: '',
+                    source: '',
+                    notes: '',
+                    file: null,
+                    previewUrl: '',
+                    saving: false
+                },
+
                 formModal: {
                     open: false,
                     isEdit: false,
@@ -936,6 +1097,8 @@ $initialState = get_state_payload();
                     title: '',
                     status: 'uncollected',
                     price: '',
+                    price_count: 0,
+                    min_price: null,
                     notes: '',
                     file: null,
                     imageBase64: '',
@@ -1310,6 +1473,8 @@ $initialState = get_state_payload();
                         title: '',
                         status: this.activeStatus === 'all' ? 'uncollected' : this.activeStatus,
                         price: '',
+                        price_count: 0,
+                        min_price: null,
                         notes: '',
                         file: null,
                         imageBase64: '',
@@ -1328,6 +1493,8 @@ $initialState = get_state_payload();
                         title: card.title || '',
                         status: card.status,
                         price: card.price !== null ? card.price : '',
+                        price_count: card.price_count || 0,
+                        min_price: card.min_price || null,
                         notes: card.notes || '',
                         file: null,
                         imageBase64: '',
@@ -1427,8 +1594,118 @@ $initialState = get_state_payload();
                     this.lightboxCard = card;
                 },
 
+                resetPriceForm() {
+                    this.priceForm = {
+                        price: '',
+                        source: '',
+                        notes: '',
+                        file: null,
+                        previewUrl: '',
+                        saving: false
+                    };
+                },
+
+                async openPriceModal(card) {
+                    this.priceModal.card = card;
+                    this.priceModal.open = true;
+                    this.priceModal.loading = true;
+                    this.resetPriceForm();
+                    try {
+                        const res = await fetch(`api.php?action=list_prices&card_id=${card.id}`);
+                        const data = await res.json();
+                        if (data.ok) {
+                            this.priceModal.list = data.prices || [];
+                        } else {
+                            alert(data.error || 'Failed to load prices');
+                        }
+                    } catch (err) {
+                        alert(err.message);
+                    } finally {
+                        this.priceModal.loading = false;
+                    }
+                },
+
+                openPriceModalById(cardId) {
+                    const card = this.cards.find(c => c.id === Number(cardId));
+                    if (card) {
+                        this.openPriceModal(card);
+                    }
+                },
+
+                handlePriceFileSelect(e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    this.priceForm.file = file;
+                    this.priceForm.previewUrl = URL.createObjectURL(file);
+                },
+
+                async submitNewPriceListing() {
+                    if (!this.priceModal.card) return;
+                    this.priceForm.saving = true;
+                    try {
+                        const fd = new FormData();
+                        fd.append('action', 'create_price');
+                        fd.append('card_id', this.priceModal.card.id);
+                        fd.append('price', this.priceForm.price);
+                        fd.append('source', this.priceForm.source);
+                        if (this.priceForm.notes) fd.append('note', this.priceForm.notes);
+                        if (this.priceForm.file) fd.append('image', this.priceForm.file);
+
+                        const res = await fetch('api.php', { method: 'POST', body: fd });
+                        const data = await res.json();
+                        if (!data.ok) throw new Error(data.error || 'Failed to add price listing');
+
+                        this.priceModal.list = data.prices || [];
+                        const card = this.cards.find(c => c.id === this.priceModal.card.id);
+                        if (card) {
+                            card.price_count = data.prices.length;
+                            card.min_price = data.prices.length > 0 ? data.prices[0].price : null;
+                        }
+                        if (this.formModal.id === this.priceModal.card.id) {
+                            this.formModal.price_count = data.prices.length;
+                            this.formModal.min_price = data.prices.length > 0 ? data.prices[0].price : null;
+                        }
+
+                        this.resetPriceForm();
+                        this.showToast('Price listing added');
+                    } catch (err) {
+                        alert(err.message);
+                    } finally {
+                        this.priceForm.saving = false;
+                    }
+                },
+
+                async deletePriceListing(priceId) {
+                    if (!confirm('Delete this price listing?')) return;
+                    try {
+                        const res = await fetch('api.php?action=delete_price', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ id: priceId })
+                        });
+                        const data = await res.json();
+                        if (!data.ok) throw new Error(data.error || 'Failed to delete price');
+
+                        this.priceModal.list = data.prices || [];
+                        const cardId = Number(data.card_id || (this.priceModal.card ? this.priceModal.card.id : 0));
+                        const card = this.cards.find(c => c.id === cardId);
+                        if (card) {
+                            card.price_count = data.prices.length;
+                            card.min_price = data.prices.length > 0 ? data.prices[0].price : null;
+                        }
+                        if (this.formModal.id === cardId) {
+                            this.formModal.price_count = data.prices.length;
+                            this.formModal.min_price = data.prices.length > 0 ? data.prices[0].price : null;
+                        }
+                        this.showToast('Price listing deleted');
+                    } catch (err) {
+                        alert(err.message);
+                    }
+                },
+
                 closeModals() {
                     this.lightboxCard = null;
+                    this.priceModal.open = false;
                     this.formModal.open = false;
                     this.syncModalOpen = false;
                     this.pinModalOpen = false;

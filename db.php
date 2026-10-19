@@ -48,7 +48,30 @@ function init_schema(PDO $pdo): void
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS card_prices (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            card_id INTEGER NOT NULL REFERENCES photocards(id) ON DELETE CASCADE,
+            price REAL NOT NULL,
+            source TEXT NOT NULL,
+            note TEXT NOT NULL DEFAULT '',
+            image_path TEXT DEFAULT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_card_prices_card_id ON card_prices(card_id);
     ");
+
+    // Auto-migrate legacy photocard prices if card_prices table is empty
+    $countPrices = (int) $pdo->query("SELECT COUNT(*) FROM card_prices")->fetchColumn();
+    if ($countPrices === 0) {
+        $pdo->exec("
+            INSERT INTO card_prices (card_id, price, source, note, created_at)
+            SELECT id, price, 'Previous Record', notes, created_at
+            FROM photocards
+            WHERE price IS NOT NULL AND price > 0
+        ");
+    }
 
     // Seed default PIN hash if not set
     $stmt = $pdo->prepare("SELECT value FROM settings WHERE key = 'admin_pin_hash'");
@@ -205,10 +228,105 @@ function save_card_image_from_url(string $url, string $prefix = 'card'): string
     return save_card_image_from_bytes((string) $bytes, $prefix);
 }
 
+/**
+ * Convert raw image bytes into an optimized WebP file inside storage/prices/
+ */
+function save_price_image_from_bytes(string $bytes, string $prefix = 'price'): string
+{
+    if ($bytes === '') {
+        throw new RuntimeException('Empty image data provided.');
+    }
+
+    $id = bin2hex(random_bytes(6));
+    $filename = sprintf('%s_%s_%s.webp', $prefix, date('Ymd_His'), $id);
+    $destPath = PRICES_DIR . '/' . $filename;
+
+    $img = @imagecreatefromstring($bytes);
+    if ($img !== false) {
+        $width = imagesx($img);
+        $height = imagesy($img);
+
+        $maxHeight = 960;
+        if ($height > $maxHeight) {
+            $newHeight = $maxHeight;
+            $newWidth = (int) round($width * ($maxHeight / $height));
+            $resized = imagecreatetruecolor($newWidth, $newHeight);
+            imagealphablending($resized, false);
+            imagesavealpha($resized, true);
+            imagecopyresampled($resized, $img, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+            imagedestroy($img);
+            $img = $resized;
+        } else {
+            imagepalettetotruecolor($img);
+            imagealphablending($img, true);
+            imagesavealpha($img, true);
+        }
+
+        if (function_exists('imagewebp') && imagewebp($img, $destPath, 86)) {
+            imagedestroy($img);
+            return 'storage/prices/' . $filename;
+        }
+        imagedestroy($img);
+    }
+
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $mime = $finfo->buffer($bytes) ?: 'image/jpeg';
+    $extMap = [
+        'image/webp' => 'webp',
+        'image/png' => 'png',
+        'image/gif' => 'gif',
+        'image/jpeg' => 'jpg',
+    ];
+    $ext = $extMap[$mime] ?? 'jpg';
+    $fallbackName = sprintf('%s_%s_%s.%s', $prefix, date('Ymd_His'), $id, $ext);
+    file_put_contents(PRICES_DIR . '/' . $fallbackName, $bytes);
+    return 'storage/prices/' . $fallbackName;
+}
+
+/**
+ * Download remote image URL and store as WebP in storage/prices/
+ */
+function save_price_image_from_url(string $url, string $prefix = 'price'): string
+{
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_TIMEOUT => 20,
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_USERAGENT => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    ]);
+    $bytes = curl_exec($ch);
+    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $err = curl_error($ch);
+    curl_close($ch);
+
+    if ($bytes === false || $code >= 400 || strlen((string) $bytes) < 100) {
+        throw new RuntimeException("Failed to fetch image from URL (HTTP $code): $err");
+    }
+
+    return save_price_image_from_bytes((string) $bytes, $prefix);
+}
+
+function get_card_prices(int $cardId): array
+{
+    $pdo = get_db();
+    $stmt = $pdo->prepare("SELECT * FROM card_prices WHERE card_id = :card_id ORDER BY price ASC, id DESC");
+    $stmt->execute([':card_id' => $cardId]);
+    $rows = $stmt->fetchAll();
+    foreach ($rows as &$r) {
+        $r['id'] = (int) $r['id'];
+        $r['card_id'] = (int) $r['card_id'];
+        $r['price'] = (float) $r['price'];
+    }
+    return $rows;
+}
+
 function get_state_payload(): array
 {
     $pdo = get_db();
     $cards = $pdo->query("SELECT * FROM photocards ORDER BY sort_order ASC, id DESC")->fetchAll();
+    $isAdmin = is_admin();
 
     $counts = [
         'all' => count($cards),
@@ -219,10 +337,34 @@ function get_state_payload(): array
     ];
     $erasMap = [];
 
+    // Aggregate price count and lowest price per card for admin view
+    $priceStats = [];
+    if ($isAdmin) {
+        $pRows = $pdo->query("SELECT card_id, COUNT(*) as cnt, MIN(price) as min_p FROM card_prices GROUP BY card_id")->fetchAll();
+        foreach ($pRows as $pr) {
+            $priceStats[(int) $pr['card_id']] = [
+                'count' => (int) $pr['cnt'],
+                'min_price' => (float) $pr['min_p'],
+            ];
+        }
+    }
+
     foreach ($cards as &$c) {
         $c['id'] = (int) $c['id'];
-        $c['price'] = $c['price'] !== null ? (float) $c['price'] : null;
         $c['sort_order'] = (int) $c['sort_order'];
+
+        if ($isAdmin) {
+            $stat = $priceStats[$c['id']] ?? null;
+            $c['price_count'] = $stat ? $stat['count'] : 0;
+            $c['min_price'] = $stat ? $stat['min_price'] : ($c['price'] !== null ? (float)$c['price'] : null);
+            $c['price'] = $c['min_price'];
+        } else {
+            // Strictly hide all price data from non-admin/public viewers
+            $c['price'] = null;
+            $c['min_price'] = null;
+            $c['price_count'] = 0;
+        }
+
         $st = $c['status'];
         if (isset($counts[$st])) {
             $counts[$st]++;
@@ -244,7 +386,7 @@ function get_state_payload(): array
         'ok' => true,
         'app_title' => APP_TITLE,
         'currency' => CURRENCY_SYMBOL,
-        'is_admin' => is_admin(),
+        'is_admin' => $isAdmin,
         'is_local' => is_local_request(),
         'public_preview' => isset($_COOKIE['pc_public_preview']) && $_COOKIE['pc_public_preview'] === '1',
         'db_size_kb' => $dbSizeKb,

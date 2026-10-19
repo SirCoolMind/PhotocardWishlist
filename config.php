@@ -18,6 +18,7 @@ if (file_exists($envPath)) {
 define('APP_TITLE', $_ENV['APP_TITLE'] ?? "Hafiz's Winteo Peace Photocard Wishlist");
 define('STORAGE_DIR', __DIR__ . '/storage');
 define('CARDS_DIR', STORAGE_DIR . '/cards');
+define('PRICES_DIR', STORAGE_DIR . '/prices');
 define('DB_PATH', STORAGE_DIR . '/database.sqlite');
 define('DEFAULT_ADMIN_PIN', $_ENV['ADMIN_PIN'] ?? '1234');
 define('CURRENCY_SYMBOL', $_ENV['CURRENCY_SYMBOL'] ?? 'RM');
@@ -28,4 +29,7 @@ if (!is_dir(STORAGE_DIR)) {
 }
 if (!is_dir(CARDS_DIR)) {
     mkdir(CARDS_DIR, 0775, true);
+}
+if (!is_dir(PRICES_DIR)) {
+    mkdir(PRICES_DIR, 0775, true);
 }

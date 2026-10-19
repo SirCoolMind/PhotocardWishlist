@@ -268,6 +268,82 @@ try {
             echo json_encode(['ok' => true, 'result' => $result]);
             break;
 
+        case 'list_prices':
+            require_admin();
+            $cardId = (int) ($input['card_id'] ?? $_GET['card_id'] ?? 0);
+            if ($cardId <= 0) {
+                throw new RuntimeException('Invalid card ID.');
+            }
+            echo json_encode(['ok' => true, 'prices' => get_card_prices($cardId)]);
+            break;
+
+        case 'create_price':
+            require_admin();
+            $cardId = (int) ($input['card_id'] ?? 0);
+            if ($cardId <= 0 || !get_card_by_id($cardId)) {
+                throw new RuntimeException('Card not found.');
+            }
+            if (!isset($input['price']) || $input['price'] === '' || (float)$input['price'] <= 0) {
+                throw new RuntimeException('Price is required and must be greater than 0.');
+            }
+            $price = (float) $input['price'];
+            $source = trim((string) ($input['source'] ?? ''));
+            if ($source === '') {
+                throw new RuntimeException('Source is required (e.g. Carousell, Twitter @seller, Shopee, or link).');
+            }
+            $notes = trim((string) ($input['notes'] ?? $input['note'] ?? ''));
+            $imagePath = process_incoming_price_image($input);
+
+            $pdo = get_db();
+            $stmt = $pdo->prepare("
+                INSERT INTO card_prices (card_id, price, source, note, image_path)
+                VALUES (:card_id, :price, :source, :note, :image_path)
+            ");
+            $stmt->execute([
+                ':card_id' => $cardId,
+                ':price' => $price,
+                ':source' => $source,
+                ':note' => $notes,
+                ':image_path' => $imagePath,
+            ]);
+            $priceId = (int) $pdo->lastInsertId();
+
+            echo json_encode([
+                'ok' => true,
+                'price_id' => $priceId,
+                'card_id' => $cardId,
+                'prices' => get_card_prices($cardId)
+            ]);
+            break;
+
+        case 'delete_price':
+            require_admin();
+            $id = (int) ($input['id'] ?? 0);
+            $pdo = get_db();
+            $stmt = $pdo->prepare("SELECT card_id, image_path FROM card_prices WHERE id = :id");
+            $stmt->execute([':id' => $id]);
+            $row = $stmt->fetch();
+            if (!$row) {
+                throw new RuntimeException('Price listing not found.');
+            }
+            $cardId = (int) $row['card_id'];
+            if (!empty($row['image_path'])) {
+                $full = __DIR__ . '/' . $row['image_path'];
+                if (is_file($full)) {
+                    @unlink($full);
+                }
+            }
+            $del = $pdo->prepare("DELETE FROM card_prices WHERE id = :id");
+            $del->execute([':id' => $id]);
+
+            echo json_encode([
+                'ok' => true,
+                'deleted_id' => $id,
+                'card_id' => $cardId,
+                'prices' => get_card_prices($cardId)
+            ]);
+            break;
+
         default:
             http_response_code(400);
             echo json_encode(['ok' => false, 'error' => "Unknown action: $action"]);
@@ -346,6 +422,39 @@ function process_incoming_image(array $input): ?string
     return null;
 }
 
+function process_incoming_price_image(array $input): ?string
+{
+    // 1. Standard multipart file upload
+    if (!empty($_FILES['image']['tmp_name']) && is_uploaded_file($_FILES['image']['tmp_name'])) {
+        $bytes = file_get_contents($_FILES['image']['tmp_name']);
+        if ($bytes !== false && $bytes !== '') {
+            return save_price_image_from_bytes($bytes, 'price');
+        }
+    }
+
+    // 2. Base64 data URI (e.g. from Ctrl+V clipboard paste)
+    if (!empty($input['image_base64'])) {
+        $b64 = (string) $input['image_base64'];
+        if (str_contains($b64, ',')) {
+            [, $b64] = explode(',', $b64, 2);
+        }
+        $bytes = base64_decode($b64, true);
+        if ($bytes !== false && strlen($bytes) > 50) {
+            return save_price_image_from_bytes($bytes, 'price');
+        }
+    }
+
+    // 3. Remote Image URL
+    if (!empty($input['image_url'])) {
+        $url = trim((string) $input['image_url']);
+        if (filter_var($url, FILTER_VALIDATE_URL)) {
+            return save_price_image_from_url($url, 'price');
+        }
+    }
+
+    return null;
+}
+
 function create_clean_sqlite_snapshot(): string
 {
     $pdo = get_db();
@@ -390,10 +499,18 @@ function handle_export_zip(): void
         }
     }
 
+    $priceFiles = glob(PRICES_DIR . '/*.*') ?: [];
+    foreach ($priceFiles as $file) {
+        if (is_file($file)) {
+            $zip->addFile($file, 'prices/' . basename($file));
+        }
+    }
+
     $manifest = [
         'exported_at' => date('c'),
         'app' => APP_TITLE,
         'card_images_count' => count($cardFiles),
+        'price_images_count' => count($priceFiles),
     ];
     $zip->addFromString('manifest.json', json_encode($manifest, JSON_PRETTY_PRINT));
     $zip->close();
@@ -443,6 +560,13 @@ function handle_import_bundle(string $mode): array
             } elseif (is_dir($tempDir . '/storage/cards')) {
                 $importedCardsDir = $tempDir . '/storage/cards';
             }
+
+            $importedPricesDir = null;
+            if (is_dir($tempDir . '/prices')) {
+                $importedPricesDir = $tempDir . '/prices';
+            } elseif (is_dir($tempDir . '/storage/prices')) {
+                $importedPricesDir = $tempDir . '/storage/prices';
+            }
         } elseif (in_array($ext, ['sqlite', 'sqlite3', 'db'], true)) {
             $importedDbPath = $tempDir . '/uploaded.sqlite';
             copy($uploadedTmp, $importedDbPath);
@@ -465,15 +589,19 @@ function handle_import_bundle(string $mode): array
         $destPdo->beginTransaction();
 
         if ($mode === 'replace') {
+            $destPdo->exec("DELETE FROM card_prices");
             $destPdo->exec("DELETE FROM photocards");
             foreach (glob(CARDS_DIR . '/*.*') ?: [] as $existingImg) {
                 @unlink($existingImg);
             }
+            foreach (glob(PRICES_DIR . '/*.*') ?: [] as $existingPriceImg) {
+                @unlink($existingPriceImg);
+            }
         }
 
         $ins = $destPdo->prepare("
-            INSERT INTO photocards (era, title, status, price, notes, image_path, source_ref, sort_order, created_at, updated_at)
-            VALUES (:era, :title, :status, :price, :notes, :image_path, :source_ref, :sort_order, :created_at, :updated_at)
+            INSERT INTO photocards (id, era, title, status, price, notes, image_path, source_ref, sort_order, created_at, updated_at)
+            VALUES (:id, :era, :title, :status, :price, :notes, :image_path, :source_ref, :sort_order, :created_at, :updated_at)
         ");
 
         $importedCount = 0;
@@ -488,6 +616,7 @@ function handle_import_bundle(string $mode): array
             }
 
             $ins->execute([
+                ':id' => (int) $sc['id'],
                 ':era' => $sc['era'],
                 ':title' => $sc['title'] ?? '',
                 ':status' => $sc['status'] ?? 'uncollected',
@@ -500,6 +629,34 @@ function handle_import_bundle(string $mode): array
                 ':updated_at' => $sc['updated_at'] ?? date('Y-m-d H:i:s'),
             ]);
             $importedCount++;
+        }
+
+        // Import card_prices if present in uploaded database
+        $hasPricesTable = (bool) $srcPdo->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='card_prices'")->fetchColumn();
+        if ($hasPricesTable) {
+            $srcPrices = $srcPdo->query("SELECT * FROM card_prices ORDER BY id ASC")->fetchAll();
+            $insPrice = $destPdo->prepare("
+                INSERT INTO card_prices (card_id, price, source, note, image_path, created_at)
+                VALUES (:card_id, :price, :source, :note, :image_path, :created_at)
+            ");
+            foreach ($srcPrices as $sp) {
+                $pImgRel = !empty($sp['image_path']) ? (string) $sp['image_path'] : null;
+                if ($pImgRel && $importedPricesDir) {
+                    $pBase = basename($pImgRel);
+                    if (is_file($importedPricesDir . '/' . $pBase)) {
+                        copy($importedPricesDir . '/' . $pBase, PRICES_DIR . '/' . $pBase);
+                        $pImgRel = 'storage/prices/' . $pBase;
+                    }
+                }
+                $insPrice->execute([
+                    ':card_id' => (int) $sp['card_id'],
+                    ':price' => (float) $sp['price'],
+                    ':source' => (string) $sp['source'],
+                    ':note' => (string) ($sp['note'] ?? ''),
+                    ':image_path' => $pImgRel,
+                    ':created_at' => $sp['created_at'] ?? date('Y-m-d H:i:s'),
+                ]);
+            }
         }
 
         $destPdo->commit();
